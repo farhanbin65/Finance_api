@@ -17,7 +17,6 @@ def showUsers():
 
 
 # -------------------- GET all users --------------------
-# example: http://127.0.0.1:5001/api/users?pn=1&ps=10
 @users_bp.route('/users', methods=['GET'])
 def getAllUsers():
     data_to_return = []
@@ -48,7 +47,6 @@ def getAllUsers():
 
 
 # -------------------- GET one user --------------------
-# example: http://127.0.0.1:5001/api/users/<mongo_id>
 @users_bp.route('/users/<string:user_id>', methods=['GET'])
 def getOneUser(user_id):
     try:
@@ -75,7 +73,6 @@ def getOneUser(user_id):
 
 
 # -------------------- POST user --------------------
-# Body: form-data or x-www-form-urlencoded
 @users_bp.route('/users', methods=['POST'])
 def addUser():
     data = request.form
@@ -96,7 +93,7 @@ def addUser():
         try:
             results = users.insert_one(new_user)
             new_user_id = str(results.inserted_id)
-            new_user_link = f"http://127.0.0.1:5001/api/users/{new_user_id}"
+            new_user_link = f"http://127.0.0.1:5001/users/{new_user_id}"
 
             return make_response(jsonify({"URL": new_user_link}), 201)
 
@@ -108,7 +105,6 @@ def addUser():
 
 
 # -------------------- PUT user --------------------
-# Body: form-data or x-www-form-urlencoded
 @users_bp.route('/users/<string:user_id>', methods=['PUT'])
 def updateUser(user_id):
     data = request.form
@@ -138,7 +134,7 @@ def updateUser(user_id):
         if results.matched_count == 0:
             return make_response(jsonify({"error": "User not found"}), 404)
 
-        updated_user_link = f"http://127.0.0.1:5001/api/users/{user_id}"
+        updated_user_link = f"http://127.0.0.1:5001/users/{user_id}"
         return make_response(jsonify({"URL": updated_user_link}), 200)
 
     except Exception as e:

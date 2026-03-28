@@ -1,0 +1,24 @@
+<nav class="navbar navbar-expand-md bg-dark navbar-dark fixed-top px-4">
+  <a class="navbar-brand fw-bold" routerLink="/">💰 Finance Tracker</a>
+
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navMenu">
+    <ul class="navbar-nav ms-auto">
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/expenses" routerLinkActive="active">Expenses</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/budgets" routerLinkActive="active">Budgets</a>
+      </li>
+      <li class="nav-item ms-2">
+        <a class="btn btn-success btn-sm" routerLink="/expenses/add">+ Add Expense</a>
+      </li>
+    </ul>
+  </div>
+</nav>

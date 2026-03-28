@@ -10,7 +10,6 @@ users_bp = Blueprint("users_bp", __name__)
 
 # -------------------- Home --------------------
 @users_bp.route('/', methods=['GET'])
-@jwt_required
 def showUsers():
     return jsonify({"message": "Welcome to Finance DB"})
 

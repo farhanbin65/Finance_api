@@ -1,0 +1,52 @@
+<div class="auth-wrapper d-flex align-items-center justify-content-center">
+  <div class="card border-0 shadow-lg auth-card">
+    <div class="card-body p-5">
+
+      <!-- Logo -->
+      <div class="text-center mb-4">
+        <h2>💰 Finance Tracker</h2>
+        <p class="text-muted">Sign in to your account</p>
+      </div>
+
+      <!-- Error -->
+      @if (errorMessage) {
+        <div class="alert alert-danger py-2">{{ errorMessage }}</div>
+      }
+
+      <!-- Form -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Username</label>
+        <input
+            type="text"
+            class="form-control"
+            [(ngModel)]="email"
+            placeholder="username"
+        />
+        </div>
+
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Password</label>
+        <input
+          type="password"
+          class="form-control"
+          [(ngModel)]="password"
+          placeholder="••••••••"
+          (keyup.enter)="onLogin()"
+        />
+      </div>
+
+      <button
+        class="btn btn-dark w-100 mb-3"
+        (click)="onLogin()"
+        [disabled]="isLoading">
+        {{ isLoading ? 'Signing in...' : 'Sign In' }}
+      </button>
+
+      <p class="text-center text-muted mb-0">
+        Don't have an account?
+        <a routerLink="/register" class="text-decoration-none fw-semibold">Register</a>
+      </p>
+
+    </div>
+  </div>
+</div>

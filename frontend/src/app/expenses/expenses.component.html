@@ -1,1 +1,103 @@
-<p>expenses works!</p>
+<div class="container mt-4">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-0">💸 Expenses</h3>
+      <small class="text-muted">{{ filteredExpenses.length }} record(s) found</small>
+    </div>
+    <a routerLink="/expenses/add" class="btn btn-success">+ Add Expense</a>
+  </div>
+
+  <!-- Search & Filters -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-md-4">
+          <input
+            type="text"
+            class="form-control"
+            placeholder="🔍 Search by merchant..."
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="applyFilters()"
+          />
+        </div>
+        <div class="col-md-3">
+          <select class="form-select" [(ngModel)]="selectedCategory" (ngModelChange)="applyFilters()">
+            <option value="">All Categories</option>
+            @for (cat of categories; track cat.category_id) {
+              <option [value]="cat.category_id">{{ cat.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select" [(ngModel)]="selectedPayment" (ngModelChange)="applyFilters()">
+            <option value="">All Payment Methods</option>
+            <option value="card">Card</option>
+            <option value="cash">Cash</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-outline-secondary w-100" (click)="clearFilters()">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expense Cards -->
+  <div class="row g-3 mb-4">
+    @for (expense of paginatedExpenses; track expense.expense_id) {
+      <div class="col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100 expense-card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="card-title mb-0">{{ expense.merchant }}</h5>
+              <span class="badge bg-primary">{{ getCategoryName(expense.category_id) }}</span>
+            </div>
+            <h4 class="text-danger fw-bold">£{{ expense.amount.toFixed(2) }}</h4>
+            <p class="text-muted mb-1">📅 {{ expense.date }}</p>
+            <p class="text-muted mb-2">
+              💳 <span class="badge bg-secondary">{{ expense.payment_method }}</span>
+            </p>
+            @if (expense.note) {
+              <p class="text-muted small fst-italic">{{ expense.note }}</p>
+            }
+          </div>
+          <div class="card-footer bg-transparent border-0 d-flex gap-2">
+            <a [routerLink]="['/expenses/edit', expense.expense_id]"
+               class="btn btn-outline-primary btn-sm w-50">✏️ Edit</a>
+            <button class="btn btn-outline-danger btn-sm w-50"
+                    (click)="deleteExpense(expense.expense_id)">🗑️ Delete</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (paginatedExpenses.length === 0) {
+      <div class="col-12 text-center py-5 text-muted">
+        <h5>No expenses found</h5>
+        <p>Try adjusting your search or filters</p>
+      </div>
+    }
+  </div>
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <nav class="d-flex justify-content-center">
+      <ul class="pagination">
+        <li class="page-item" [class.disabled]="currentPage === 1">
+          <button class="page-link" (click)="goToPage(currentPage - 1)">‹ Prev</button>
+        </li>
+        @for (page of pageNumbers; track page) {
+          <li class="page-item" [class.active]="page === currentPage">
+            <button class="page-link" (click)="goToPage(page)">{{ page }}</button>
+          </li>
+        }
+        <li class="page-item" [class.disabled]="currentPage === totalPages">
+          <button class="page-link" (click)="goToPage(currentPage + 1)">Next ›</button>
+        </li>
+      </ul>
+    </nav>
+  }
+
+</div>

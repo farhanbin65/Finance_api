@@ -1,0 +1,8 @@
+.card {
+  border-radius: 12px;
+}
+
+.card-body h3 {
+  font-size: 2rem;
+  font-weight: 700;
+}

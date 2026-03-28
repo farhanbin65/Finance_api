@@ -1,1 +1,114 @@
-<p>expense-form works!</p>
+<div class="container mt-4">
+  <div class="row justify-content-center">
+    <div class="col-md-7">
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-dark text-white">
+          <h5 class="mb-0">{{ isEditMode ? '✏️ Edit Expense' : '➕ Add New Expense' }}</h5>
+        </div>
+        <div class="card-body p-4">
+
+          <!-- Merchant -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Merchant</label>
+            <input
+              type="text"
+              class="form-control"
+              [(ngModel)]="expense.merchant"
+              placeholder="e.g. Tesco, KFC, Amazon"
+              [class.is-invalid]="errors.merchant"
+            />
+            @if (errors.merchant) {
+              <div class="invalid-feedback">{{ errors.merchant }}</div>
+            }
+          </div>
+
+          <!-- Amount -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Amount (£)</label>
+            <input
+              type="number"
+              class="form-control"
+              [(ngModel)]="expense.amount"
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              [class.is-invalid]="errors.amount"
+            />
+            @if (errors.amount) {
+              <div class="invalid-feedback">{{ errors.amount }}</div>
+            }
+          </div>
+
+          <!-- Date -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Date</label>
+            <input
+              type="date"
+              class="form-control"
+              [(ngModel)]="expense.date"
+              [class.is-invalid]="errors.date"
+            />
+            @if (errors.date) {
+              <div class="invalid-feedback">{{ errors.date }}</div>
+            }
+          </div>
+
+          <!-- Category -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Category</label>
+            <select
+              class="form-select"
+              [(ngModel)]="expense.category_id"
+              [class.is-invalid]="errors.category_id"
+            >
+              <option value="">-- Select Category --</option>
+              @for (cat of categories; track cat.category_id) {
+                <option [value]="cat.category_id">{{ cat.name }}</option>
+              }
+            </select>
+            @if (errors.category_id) {
+              <div class="invalid-feedback">{{ errors.category_id }}</div>
+            }
+          </div>
+
+          <!-- Payment Method -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Payment Method</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" [(ngModel)]="expense.payment_method" value="card" id="card"/>
+                <label class="form-check-label" for="card">💳 Card</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" [(ngModel)]="expense.payment_method" value="cash" id="cash"/>
+                <label class="form-check-label" for="cash">💵 Cash</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Note -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+            <textarea
+              class="form-control"
+              [(ngModel)]="expense.note"
+              rows="2"
+              placeholder="Any additional notes..."
+            ></textarea>
+          </div>
+
+          <!-- Buttons -->
+          <div class="d-flex gap-2">
+            <button class="btn btn-success w-50" (click)="onSubmit()">
+              {{ isEditMode ? '💾 Save Changes' : '➕ Add Expense' }}
+            </button>
+            <a routerLink="/expenses" class="btn btn-outline-secondary w-50">Cancel</a>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

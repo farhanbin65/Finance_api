@@ -1,0 +1,137 @@
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-0">🏷️ Categories</h3>
+      <small class="text-muted">Manage your income & expense categories</small>
+    </div>
+    <button class="btn btn-primary" (click)="openAddModal()">+ Add Category</button>
+  </div>
+
+  @if (successMessage) {
+    <div class="alert alert-success alert-dismissible mb-3">
+      ✅ {{ successMessage }}
+      <button type="button" class="btn-close" (click)="successMessage = ''"></button>
+    </div>
+  }
+  @if (errorMessage) {
+    <div class="alert alert-danger alert-dismissible mb-3">
+      ❌ {{ errorMessage }}
+      <button type="button" class="btn-close" (click)="errorMessage = ''"></button>
+    </div>
+  }
+
+  <div class="row g-4">
+
+    <!-- Expense Categories -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-danger text-white fw-semibold">
+          💸 Expense Categories
+        </div>
+        <ul class="list-group list-group-flush">
+          @for (cat of expenseCategories; track cat.category_id) {
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ cat.name }}</span>
+              <div>
+                @if (deleteConfirmId === cat.category_id) {
+                  <span class="me-2 text-danger small">Delete?</span>
+                  <button class="btn btn-sm btn-danger me-1"
+                          (click)="deleteCategory(cat.category_id)">Yes</button>
+                  <button class="btn btn-sm btn-secondary"
+                          (click)="cancelDelete()">No</button>
+                } @else {
+                  <button class="btn btn-sm btn-outline-danger"
+                          (click)="confirmDelete(cat.category_id)">🗑️</button>
+                }
+              </div>
+            </li>
+          }
+          @if (expenseCategories.length === 0) {
+            <li class="list-group-item text-muted">No expense categories yet</li>
+          }
+        </ul>
+      </div>
+    </div>
+
+    <!-- Income Categories -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-success text-white fw-semibold">
+          💰 Income Categories
+        </div>
+        <ul class="list-group list-group-flush">
+          @for (cat of incomeCategories; track cat.category_id) {
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ cat.name }}</span>
+              <div>
+                @if (deleteConfirmId === cat.category_id) {
+                  <span class="me-2 text-danger small">Delete?</span>
+                  <button class="btn btn-sm btn-danger me-1"
+                          (click)="deleteCategory(cat.category_id)">Yes</button>
+                  <button class="btn btn-sm btn-secondary"
+                          (click)="cancelDelete()">No</button>
+                } @else {
+                  <button class="btn btn-sm btn-outline-danger"
+                          (click)="confirmDelete(cat.category_id)">🗑️</button>
+                }
+              </div>
+            </li>
+          }
+          @if (incomeCategories.length === 0) {
+            <li class="list-group-item text-muted">No income categories yet</li>
+          }
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Add Modal -->
+@if (showModal) {
+  <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">+ Add Category</h5>
+          <button type="button" class="btn-close" (click)="closeModal()"></button>
+        </div>
+        <div class="modal-body">
+          @if (errorMessage) {
+            <div class="alert alert-danger py-2">{{ errorMessage }}</div>
+          }
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Name</label>
+            <input type="text" class="form-control"
+                   placeholder="e.g. Groceries"
+                   [(ngModel)]="form.name" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Type</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio"
+                       id="typeExpense" value="expense"
+                       [(ngModel)]="form.type" />
+                <label class="form-check-label" for="typeExpense">💸 Expense</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio"
+                       id="typeIncome" value="income"
+                       [(ngModel)]="form.type" />
+                <label class="form-check-label" for="typeIncome">💰 Income</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="closeModal()">Cancel</button>
+          <button class="btn btn-primary" (click)="saveCategory()" [disabled]="saving">
+            {{ saving ? 'Saving...' : 'Add Category' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

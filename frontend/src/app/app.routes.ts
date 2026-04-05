@@ -18,5 +18,4 @@ export const routes: Routes = [
   { path: 'expenses/edit/:id', component: ExpenseFormComponent, canActivate: [AuthGuard] },
   { path: 'budgets', component: BudgetsComponent, canActivate: [AuthGuard] },
   { path: '**', redirectTo: '/login' }
-  
 ];

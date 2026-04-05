@@ -92,7 +92,8 @@ def addExpense(user_id):
             "date": data.get("date"),
             "merchant": data.get("merchant", ""),
             "note": data.get("note", ""),
-            "payment_method": data.get("payment_method")
+            "payment_method": data.get("payment_method"),
+            "type": data.get("type", "expense")
         }
 
         results = users.update_one(
@@ -129,6 +130,8 @@ def updateExpense(user_id, expense_id):
         update_fields["expenses.$.note"] = data.get("note")
     if data.get("payment_method"):
         update_fields["expenses.$.payment_method"] = data.get("payment_method")
+    if data.get("type"):
+        update_fields["expenses.$.type"] = data.get("type")
 
     if not update_fields:
         return make_response(jsonify({"Error": "No valid data passed"}), 400)

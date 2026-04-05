@@ -1,112 +1,168 @@
-<div class="container mt-4">
-  <div class="row justify-content-center">
-    <div class="col-md-7">
+<div class="container mt-4" style="max-width: 600px;">
 
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-dark text-white">
-          <h5 class="mb-0">{{ isEditMode ? '✏️ Edit Expense' : '➕ Add New Expense' }}</h5>
-        </div>
-        <div class="card-body p-4">
+  <div class="mb-4">
+    <h3 class="mb-0">{{ isEditMode ? '✏️ Edit Transaction' : '➕ Add Transaction' }}</h3>
+    <small class="text-muted">{{ isEditMode ? 'Update the details below' : 'Record an expense or income' }}</small>
+  </div>
 
-          <!-- Merchant -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Merchant</label>
-            <input
-              type="text"
-              class="form-control"
-              [(ngModel)]="expense.merchant"
-              placeholder="e.g. Tesco, KFC, Amazon"
-              [class.is-invalid]="errors.merchant"
-            />
-            @if (errors.merchant) {
-              <div class="invalid-feedback">{{ errors.merchant }}</div>
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+
+      <!-- Merchant -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Merchant / Description</label>
+        <input type="text" class="form-control"
+               [class.is-invalid]="errors.merchant"
+               placeholder="e.g. Tesco, Salary, Netflix"
+               [(ngModel)]="expense.merchant"
+               (ngModelChange)="onMerchantChange()" />
+        @if (errors.merchant) {
+          <div class="invalid-feedback">{{ errors.merchant }}</div>
+        }
+      </div>
+
+      <!-- Amount -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Amount (£)</label>
+        <input type="number" class="form-control"
+               [class.is-invalid]="errors.amount"
+               min="0" step="0.01" placeholder="0.00"
+               [(ngModel)]="expense.amount" />
+        @if (errors.amount) {
+          <div class="invalid-feedback">{{ errors.amount }}</div>
+        }
+      </div>
+
+      <!-- Date -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Date</label>
+        <input type="date" class="form-control"
+               [class.is-invalid]="errors.date"
+               [(ngModel)]="expense.date" />
+        @if (errors.date) {
+          <div class="invalid-feedback">{{ errors.date }}</div>
+        }
+      </div>
+
+      <!-- Category dropdown -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Category</label>
+
+        @if (!showCustomInput) {
+          <select class="form-select" [class.is-invalid]="errors.category_id"
+                  [(ngModel)]="expense.category_id"
+                  (ngModelChange)="onCategoryChange()">
+            <option value="">-- Select category --</option>
+
+            @if (expenseCategories.length > 0) {
+              <optgroup label="💸 Expenses">
+                @for (cat of expenseCategories; track cat.category_id) {
+                  <option [value]="cat.category_id">{{ cat.name }}</option>
+                }
+              </optgroup>
             }
-          </div>
 
-          <!-- Amount -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Amount (£)</label>
-            <input
-              type="number"
-              class="form-control"
-              [(ngModel)]="expense.amount"
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              [class.is-invalid]="errors.amount"
-            />
-            @if (errors.amount) {
-              <div class="invalid-feedback">{{ errors.amount }}</div>
+            @if (incomeCategories.length > 0) {
+              <optgroup label="💰 Income">
+                @for (cat of incomeCategories; track cat.category_id) {
+                  <option [value]="cat.category_id">{{ cat.name }}</option>
+                }
+              </optgroup>
             }
-          </div>
 
-          <!-- Date -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Date</label>
-            <input
-              type="date"
-              class="form-control"
-              [(ngModel)]="expense.date"
-              [class.is-invalid]="errors.date"
-            />
-            @if (errors.date) {
-              <div class="invalid-feedback">{{ errors.date }}</div>
-            }
-          </div>
+            <optgroup label="─────────────">
+              <option value="__custom__" (click)="openCustomInput()">
+                ➕ Add custom category...
+              </option>
+            </optgroup>
+          </select>
+          @if (errors.category_id) {
+            <div class="invalid-feedback">{{ errors.category_id }}</div>
+          }
 
-          <!-- Category -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Category</label>
-            <select
-              class="form-select"
-              [(ngModel)]="expense.category_id"
-              [class.is-invalid]="errors.category_id"
-            >
-              <option value="">-- Select Category --</option>
-              @for (cat of categories; track cat.category_id) {
-                <option [value]="cat.category_id">{{ cat.name }}</option>
-              }
-            </select>
-            @if (errors.category_id) {
-              <div class="invalid-feedback">{{ errors.category_id }}</div>
-            }
-          </div>
+          <!-- Trigger custom input when __custom__ is selected -->
+          @if (expense.category_id === '__custom__') {
+            <div class="mt-1">
+              <ng-container *ngTemplateOutlet="customCatTpl"></ng-container>
+            </div>
+          }
 
-          <!-- Payment Method -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Payment Method</label>
-            <div class="d-flex gap-3">
-              <div class="form-check">
-                <input class="form-check-input" type="radio" [(ngModel)]="expense.payment_method" value="card" id="card"/>
-                <label class="form-check-label" for="card">💳 Card</label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="radio" [(ngModel)]="expense.payment_method" value="cash" id="cash"/>
-                <label class="form-check-label" for="cash">💵 Cash</label>
-              </div>
+        }
+      </div>
+
+      <!-- Inline custom category form -->
+      <ng-template #customCatTpl>
+        <div class="card bg-light border-0 p-3 mt-2">
+          <p class="fw-semibold mb-2 small">New Category</p>
+          @if (categoryError) {
+            <div class="alert alert-danger py-1 px-2 small mb-2">{{ categoryError }}</div>
+          }
+          <input type="text" class="form-control form-control-sm mb-2"
+                 placeholder="Category name"
+                 [(ngModel)]="newCategoryName" />
+          <div class="d-flex gap-3 mb-2">
+            <div class="form-check">
+              <input class="form-check-input" type="radio"
+                     id="customExpense" value="expense"
+                     [(ngModel)]="newCategoryType" />
+              <label class="form-check-label small" for="customExpense">💸 Expense</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio"
+                     id="customIncome" value="income"
+                     [(ngModel)]="newCategoryType" />
+              <label class="form-check-label small" for="customIncome">💰 Income</label>
             </div>
           </div>
-
-          <!-- Note -->
-          <div class="mb-4">
-            <label class="form-label fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
-            <textarea
-              class="form-control"
-              [(ngModel)]="expense.note"
-              rows="2"
-              placeholder="Any additional notes..."
-            ></textarea>
-          </div>
-
-          <!-- Buttons -->
           <div class="d-flex gap-2">
-            <button class="btn btn-success w-50" (click)="onSubmit()">
-              {{ isEditMode ? '💾 Save Changes' : '➕ Add Expense' }}
+            <button class="btn btn-sm btn-primary" (click)="saveCustomCategory()"
+                    [disabled]="savingCategory">
+              {{ savingCategory ? 'Saving...' : 'Save' }}
             </button>
-            <a routerLink="/expenses" class="btn btn-outline-secondary w-50">Cancel</a>
+            <button class="btn btn-sm btn-secondary" (click)="cancelCustomInput()">
+              Cancel
+            </button>
           </div>
-
         </div>
+      </ng-template>
+
+      <!-- Type indicator (auto-set, read-only) -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Type</label>
+        <div class="d-flex gap-2">
+          <span class="badge fs-6 px-3 py-2"
+                [class.bg-danger]="expense.type === 'expense'"
+                [class.bg-success]="expense.type === 'income'">
+            {{ expense.type === 'income' ? '💰 Income' : '💸 Expense' }}
+          </span>
+          <small class="text-muted align-self-center">Auto-set from category</small>
+        </div>
+      </div>
+
+      <!-- Payment Method -->
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Payment Method</label>
+        <select class="form-select" [(ngModel)]="expense.payment_method">
+          <option value="card">💳 Card</option>
+          <option value="cash">💵 Cash</option>
+          <option value="bank_transfer">🏦 Bank Transfer</option>
+        </select>
+      </div>
+
+      <!-- Note -->
+      <div class="mb-4">
+        <label class="form-label fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+        <textarea class="form-control" rows="2"
+                  placeholder="Any extra details..."
+                  [(ngModel)]="expense.note"></textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary flex-grow-1" (click)="onSubmit()">
+          {{ isEditMode ? 'Update' : 'Save Transaction' }}
+        </button>
+        <a class="btn btn-outline-secondary" routerLink="/expenses">Cancel</a>
       </div>
 
     </div>

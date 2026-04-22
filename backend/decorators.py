@@ -10,12 +10,13 @@ def jwt_required(func):
     def jwt_required_wrapper(*args, **kwargs):
         token = None
 
-        # Support both header formats
-        if 'x-access-token' in request.headers:
+        # Prefer HttpOnly cookie, fall back to headers for compatibility
+        if request.cookies.get('token'):
+            token = request.cookies.get('token')
+        elif 'x-access-token' in request.headers:
             token = request.headers['x-access-token']
         elif 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            token = auth_header.replace('Bearer ', '')
+            token = request.headers['Authorization'].replace('Bearer ', '')
 
         if not token:
             return make_response(jsonify({"message": "Token is missing"}), 401)

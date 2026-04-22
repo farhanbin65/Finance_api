@@ -12,13 +12,15 @@ export class AuthService {
   constructor(private http: HttpClient, private router: Router) {}
 
 login(email: string, password: string): Observable<any> {
-  return this.http.post<any>(`${this.apiUrl}/login`, { email, password }).pipe(
+  return this.http.post<any>(`${this.apiUrl}/login`, { email, password }, { withCredentials: true }).pipe(
     tap(res => {
-      localStorage.setItem('token', res.token);
+      // Token is stored as HttpOnly cookie by the server — never touch it here
       localStorage.setItem('user_id', res.user_id);
       localStorage.setItem('finance_id', res.finance_id);
       localStorage.setItem('name', res.name);
-      localStorage.setItem('admin', res.admin);
+      localStorage.setItem('admin', String(res.admin));
+      // Store expiry time (30 min) so isLoggedIn() can check it without reading the cookie
+      localStorage.setItem('session_exp', String(Date.now() + 30 * 60 * 1000));
     })
   );
 }
@@ -32,18 +34,10 @@ getFinanceId(): string | null {
   }
 
   logout(): void {
-    const token = this.getToken();
-    if (token) {
-      this.http.post(`${this.apiUrl}/logout`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).subscribe();
-    }
+    // Server will read the cookie and blacklist it, then clear the cookie
+    this.http.post(`${this.apiUrl}/logout`, {}, { withCredentials: true }).subscribe();
     localStorage.clear();
     this.router.navigate(['/login']);
-  }
-
-  getToken(): string | null {
-    return localStorage.getItem('token');
   }
 
   getUserId(): string | null {
@@ -54,21 +48,17 @@ getFinanceId(): string | null {
     return localStorage.getItem('name');
   }
 
- isLoggedIn(): boolean {
-  const token = this.getToken();
-  if (!token) return false;
+  isAdmin(): boolean {
+    return localStorage.getItem('admin') === 'true';
+  }
 
-  // Decode token and check expiry
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const expired = payload.exp * 1000 < Date.now();
-    if (expired) {
+  isLoggedIn(): boolean {
+    const exp = localStorage.getItem('session_exp');
+    if (!exp) return false;
+    if (Date.now() > Number(exp)) {
       localStorage.clear();
       return false;
     }
     return true;
-  } catch {
-    return false;
   }
-}
 }

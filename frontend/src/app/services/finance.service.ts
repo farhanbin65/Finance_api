@@ -82,4 +82,25 @@ addCategory(category: { name: string; type: string }): Observable<any> {
       `${this.apiUrl}/users/${this.userId}/expenses/${expenseId}`
     );
   }
+
+  getAllUsers(size = 200): Observable<any[]> {
+    const params = new HttpParams().set('pn', 1).set('ps', size);
+    return this.http.get<any[]>(`${this.apiUrl}/users`, { params });
+  }
+
+  getUserById(id: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/users/${id}`);
+  }
+
+  getAdminStats(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/admin/stats`);
+  }
+
+  getAdminExpenses(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/admin/expenses`);
+  }
+
+  getAdminBudgets(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/admin/budgets`);
+  }
 }

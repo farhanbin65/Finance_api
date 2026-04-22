@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { FinanceService } from '../services/finance.service';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-budgets',
@@ -16,6 +17,7 @@ export class BudgetsComponent implements OnInit {
   expenses: any[] = [];
   alerts: any[] = [];
   enrichedBudgets: any[] = [];
+  filteredBudgets: any[] = [];
 
   showModal = false;
   isEditing = false;
@@ -28,38 +30,61 @@ export class BudgetsComponent implements OnInit {
     month: ''
   };
 
+  selectedMonth = '';
+  availableMonths: string[] = [];
+
   successMessage = '';
   errorMessage = '';
+
+  isAdmin = false;
 
   private apiBase = 'http://127.0.0.1:5001';
 
   constructor(
     private financeService: FinanceService,
+    private authService: AuthService,
     private http: HttpClient
   ) {}
 
   ngOnInit(): void {
+    this.isAdmin = this.authService.isAdmin();
     this.loadData();
   }
 
   loadData(): void {
-    this.financeService.getCurrentUser().subscribe(user => {
-      if (!user) return;
-      this.budgets = user.monthly_budgets || [];
-      this.expenses = user.expenses || [];
-      this.alerts = user.alerts || [];
-      this.enrichBudgets();
-    });
+    if (this.isAdmin) {
+      this.financeService.getAdminBudgets().subscribe(budgets => {
+        // Admin budgets already have spent calculated by backend
+        this.enrichedBudgets = budgets.map(b => {
+          const percent = b.budget_amount > 0
+            ? Math.min((b.spent / b.budget_amount) * 100, 100)
+            : 0;
+          return {
+            ...b,
+            percent: +percent.toFixed(1),
+            remaining: b.budget_amount - b.spent,
+            status: percent >= 100 ? 'danger' : percent >= 75 ? 'warning' : 'success'
+          };
+        });
+
+        this.availableMonths = [...new Set(this.enrichedBudgets.map(b => b.month))].sort().reverse();
+        this.applyMonthFilter();
+      });
+    } else {
+      this.financeService.getCurrentUser().subscribe(user => {
+        if (!user) return;
+        this.budgets = user.monthly_budgets || [];
+        this.expenses = user.expenses || [];
+        this.alerts = user.alerts || [];
+        this.enrichBudgets();
+      });
+    }
   }
 
   enrichBudgets(): void {
     this.enrichedBudgets = this.budgets.map(budget => {
-
       const spent = this.expenses
-        .filter(e =>
-          e.type === 'expense' &&
-          e.date?.startsWith(budget.month)
-        )
+        .filter(e => (e.type === 'expense' || !e.type) && e.date?.startsWith(budget.month))
         .reduce((sum: number, e: any) => sum + e.amount, 0);
 
       const percent = budget.budget_amount > 0
@@ -80,6 +105,17 @@ export class BudgetsComponent implements OnInit {
         status: percent >= 100 ? 'danger' : percent >= 75 ? 'warning' : 'success'
       };
     });
+
+    this.availableMonths = [...new Set(this.enrichedBudgets.map(b => b.month))].sort().reverse();
+    this.applyMonthFilter();
+  }
+
+  applyMonthFilter(): void {
+    if (this.selectedMonth) {
+      this.filteredBudgets = this.enrichedBudgets.filter(b => b.month === this.selectedMonth);
+    } else {
+      this.filteredBudgets = [...this.enrichedBudgets];
+    }
   }
 
   openAddModal(): void {
@@ -109,11 +145,6 @@ export class BudgetsComponent implements OnInit {
     this.errorMessage = '';
   }
 
-  private getHeaders(): HttpHeaders {
-    const token = localStorage.getItem('token') || '';
-    return new HttpHeaders({ 'x-access-token': token });
-  }
-
   private getUserId(): string {
     return localStorage.getItem('finance_id') || '';
   }
@@ -126,7 +157,6 @@ export class BudgetsComponent implements OnInit {
 
     this.saving = true;
     const userId = this.getUserId();
-    const headers = this.getHeaders();
 
     const body = new FormData();
     body.append('budget_amount', this.form.budget_amount);
@@ -135,8 +165,7 @@ export class BudgetsComponent implements OnInit {
     if (this.isEditing && this.form.budget_id !== null) {
       this.http.put(
         `${this.apiBase}/users/${userId}/budgets/${this.form.budget_id}`,
-        body,
-        { headers }
+        body
       ).subscribe({
         next: () => {
           this.saving = false;
@@ -152,8 +181,7 @@ export class BudgetsComponent implements OnInit {
     } else {
       this.http.post(
         `${this.apiBase}/users/${userId}/budgets`,
-        body,
-        { headers }
+        body
       ).subscribe({
         next: () => {
           this.saving = false;
@@ -177,13 +205,11 @@ export class BudgetsComponent implements OnInit {
     this.deleteConfirmId = null;
   }
 
-  deleteBudget(budgetId: number): void {
-    const userId = this.getUserId();
-    const headers = this.getHeaders();
+  deleteBudget(budget: any): void {
+    const userId = this.isAdmin ? budget.finance_id : this.getUserId();
 
     this.http.delete(
-      `${this.apiBase}/users/${userId}/budgets/${budgetId}`,
-      { headers }
+      `${this.apiBase}/users/${userId}/budgets/${budget.budget_id}`
     ).subscribe({
       next: () => {
         this.deleteConfirmId = null;

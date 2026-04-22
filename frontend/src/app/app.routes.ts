@@ -7,11 +7,15 @@ import { LoginComponent } from './login/login.component';
 import { RegisterComponent } from './register/register.component';
 import { AuthGuard } from './guards/auth.guard';
 import { AdminComponent } from './admin/admin.component';
+import { AdminUserDetailComponent } from './admin-user-detail/admin-user-detail.component';
+import { AdminUsersComponent } from './admin-users/admin-users.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'admin', component: AdminComponent, canActivate: [AuthGuard] },
+  { path: 'admin/users', component: AdminUsersComponent, canActivate: [AuthGuard] },
+  { path: 'admin/users/:id', component: AdminUserDetailComponent, canActivate: [AuthGuard] },
   { path: '', component: HomeComponent, canActivate: [AuthGuard] },
   { path: 'expenses', component: ExpensesComponent, canActivate: [AuthGuard] },
   { path: 'expenses/add', component: ExpenseFormComponent, canActivate: [AuthGuard] },

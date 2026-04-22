@@ -47,13 +47,22 @@ def login():
         'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=30)
     }, globals.SECRET_KEY, algorithm='HS256')
 
-    return make_response(jsonify({
-        'token': token,
+    resp = make_response(jsonify({
         'user_id': str(user['_id']),
         'finance_id': finance_id,
         'name': user.get('name', user.get('username', '')),
         'admin': user.get('admin', False)
     }), 200)
+
+    resp.set_cookie(
+        'token',
+        token,
+        httponly=True,
+        samesite='Strict',
+        max_age=30 * 60
+    )
+
+    return resp
 
 
 @auth_bp.route('/register', methods=['POST'])
@@ -121,7 +130,9 @@ def register():
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    token = request.cookies.get('token')
     if token:
         blacklist.insert_one({"token": token})
-    return make_response(jsonify({'message': 'Logged out'}), 200)
+    resp = make_response(jsonify({'message': 'Logged out'}), 200)
+    resp.delete_cookie('token', samesite='Strict')
+    return resp

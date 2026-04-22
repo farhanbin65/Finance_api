@@ -22,30 +22,75 @@ export class HomeComponent implements OnInit, AfterViewInit {
   totalIncome = 0;
   totalExpenses = 0;
   balance = 0;
+  totalUsers = 0;
   recentExpenses: any[] = [];
+  allUsers: any[] = [];
   currentUser: any = null;
   chartData: { label: string, amount: number }[] = [];
+  isAdmin = false;
 
   constructor(
     private financeService: FinanceService,
     public authService: AuthService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
+
   ngOnInit(): void {
+    this.isAdmin = this.authService.isAdmin();
+
+    if (this.isAdmin) {
+      this.loadAdminDashboard();
+    } else {
+      this.loadUserDashboard();
+    }
+  }
+
+  ngAfterViewInit(): void {}
+
+  loadAdminDashboard(): void {
+    this.financeService.getAdminStats().subscribe({
+      next: (stats) => {
+        this.totalIncome = stats.total_income;
+        this.totalExpenses = stats.total_expenses;
+        this.balance = stats.balance;
+        this.totalUsers = stats.total_users;
+      },
+      error: (err) => console.error('Admin stats error:', err)
+    });
+
+    this.financeService.getAdminExpenses().subscribe({
+      next: (expenses) => {
+        this.recentExpenses = expenses.slice(0, 5);
+        this.buildAdminChart(expenses);
+      },
+      error: (err) => console.error('Admin expenses error:', err)
+    });
+
+    this.financeService.getAllUsers().subscribe({
+      next: (users) => { this.allUsers = users; },
+      error: (err) => console.error('Users list error:', err)
+    });
+  }
+
+  buildAdminChart(expenses: any[]): void {
+    const grouped: { [key: string]: number } = {};
+    expenses.forEach((e: any) => {
+      const name = e.category_name || 'Unknown';
+      grouped[name] = (grouped[name] || 0) + e.amount;
+    });
+    this.chartData = Object.entries(grouped).map(([label, amount]) => ({ label, amount }));
+    setTimeout(() => this.renderChart(), 0);
+  }
+
+  loadUserDashboard(): void {
     this.financeService.getCurrentUser().subscribe({
       next: (user) => {
         if (!user) return;
         this.currentUser = user;
         this.calculateSummary();
       },
-      error: (err) => {
-        console.error('User load error:', err);
-        // Don't redirect, just show empty dashboard
-      }
+      error: (err) => console.error('User load error:', err)
     });
-  }
-  ngAfterViewInit(): void {
-    // Chart renders after data is loaded
   }
 
   calculateSummary(): void {
@@ -54,40 +99,31 @@ export class HomeComponent implements OnInit, AfterViewInit {
     const expenses = this.currentUser.expenses || [];
     const categories = this.currentUser.categories || [];
 
-    // Separate income and expense category IDs
-    const incomeCategoryIds = categories
-      .filter((c: any) => c.type === 'income')
-      .map((c: any) => c.category_id);
+    // Build a category-id → type map (merge in defaults for negative IDs)
+    const mergedCats = this.financeService.getMergedCategories(categories);
+    const catTypeMap: { [id: number]: string } = {};
+    mergedCats.forEach((c: any) => catTypeMap[c.category_id] = c.type);
 
-    const expenseCategoryIds = categories
-      .filter((c: any) => c.type === 'expense')
-      .map((c: any) => c.category_id);
+    // Resolve type: category lookup first, then stored type field, then default to expense
+    const resolveType = (e: any): string =>
+      catTypeMap[e.category_id] ?? e.type ?? 'expense';
 
-    // Total income = sum of transactions in income categories
-    this.totalIncome = expenses
-      .filter((e: any) => incomeCategoryIds.includes(e.category_id))
-      .reduce((sum: number, e: any) => sum + e.amount, 0);
+    this.totalIncome   = expenses.filter((e: any) => resolveType(e) === 'income') .reduce((s: number, e: any) => s + e.amount, 0);
+    this.totalExpenses = expenses.filter((e: any) => resolveType(e) === 'expense').reduce((s: number, e: any) => s + e.amount, 0);
 
-    // Total expenses = sum of transactions in expense categories only
-    this.totalExpenses = expenses
-      .filter((e: any) => expenseCategoryIds.includes(e.category_id))
-      .reduce((sum: number, e: any) => sum + e.amount, 0);
-
-    // Balance = income - expenses
     this.balance = this.totalIncome - this.totalExpenses;
 
-    // Recent 5 expenses (all transactions sorted by date)
     this.recentExpenses = [...expenses]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
 
-    // Chart data grouped by category name
-    const categoryMap: { [key: number]: string } = {};
-    categories.forEach((c: any) => categoryMap[c.category_id] = c.name);
+    // Build chart using already-merged categories
+    const catNameMap: { [key: number]: string } = {};
+    mergedCats.forEach((c: any) => catNameMap[c.category_id] = c.name);
 
     const grouped: { [key: string]: number } = {};
     expenses.forEach((e: any) => {
-      const catName = categoryMap[e.category_id] || 'Unknown';
+      const catName = catNameMap[e.category_id] || resolveType(e) || 'Other';
       grouped[catName] = (grouped[catName] || 0) + e.amount;
     });
 
@@ -96,7 +132,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
   }
 
   renderChart(): void {
-    if (!isPlatformBrowser(this.platformId)) return; // ← stops SSR from touching canvas
+    if (!isPlatformBrowser(this.platformId)) return;
     if (!this.chartRef) return;
 
     new Chart(this.chartRef.nativeElement, {
@@ -105,7 +141,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
         labels: this.chartData.map(d => d.label),
         datasets: [{
           data: this.chartData.map(d => d.amount),
-          backgroundColor: ['#198754', '#dc3545', '#0d6efd', '#ffc107', '#6f42c1', '#0dcaf0'],
+          backgroundColor: ['#4F46E5','#059669','#DC2626','#D97706','#0891B2','#7C3AED','#DB2777','#0D9488'],
           borderWidth: 2
         }]
       },

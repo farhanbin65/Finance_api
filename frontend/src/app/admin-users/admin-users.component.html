@@ -1,0 +1,54 @@
+<div class="container mt-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-0">👥 All Users</h3>
+      <small class="text-muted">{{ filteredUsers.length }} of {{ allUsers.length }} users</small>
+    </div>
+    <a routerLink="/" class="btn btn-outline-secondary">← Dashboard</a>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body border-bottom">
+      <input type="text" class="form-control" style="max-width: 340px;"
+             placeholder="🔍 Search by name or email..."
+             [(ngModel)]="searchTerm" (ngModelChange)="applySearch()" />
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Expenses</th>
+            <th>Budgets</th>
+            <th>Joined</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of filteredUsers; track user._id) {
+            <tr>
+              <td class="fw-semibold">{{ user.name }}</td>
+              <td class="text-muted">{{ user.email }}</td>
+              <td><span class="badge bg-secondary">{{ user.expenses?.length || 0 }}</span></td>
+              <td><span class="badge bg-secondary">{{ user.monthly_budgets?.length || 0 }}</span></td>
+              <td class="text-muted small">{{ user.created_at }}</td>
+              <td>
+                <a [routerLink]="['/admin/users', user._id]" class="btn btn-sm btn-outline-primary">
+                  View →
+                </a>
+              </td>
+            </tr>
+          }
+          @if (filteredUsers.length === 0) {
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">No users found.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>

@@ -67,15 +67,14 @@ export class ExpenseFormComponent implements OnInit {
     });
   }
 
-  // When merchant name is typed, auto-suggest category type
+  // Only suggest type from merchant if no category has been chosen yet
   onMerchantChange(): void {
+    if (this.expense.category_id) return;
     const name = this.expense.merchant.toLowerCase();
     const incomeKeywords = ['salary', 'wage', 'freelance', 'payroll', 'dividend', 'bonus'];
-    const expenseKeywords = ['hospital', 'nhs', 'pharmacy', 'clinic', 'doctor',
-                             'tesco', 'asda', 'amazon', 'uber', 'netflix'];
     if (incomeKeywords.some(k => name.includes(k))) {
       this.expense.type = 'income';
-    } else if (expenseKeywords.some(k => name.includes(k))) {
+    } else {
       this.expense.type = 'expense';
     }
   }

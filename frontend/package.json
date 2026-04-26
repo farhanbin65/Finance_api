@@ -7,7 +7,7 @@
     "build": "chmod +x node_modules/.bin/ng && node_modules/.bin/ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:frontend": "node dist/frontend/server/server.mjs"
+    "serve:ssr:frontend": "echo 'SSR not configured'"
   },
   "private": true,
   "dependencies": {

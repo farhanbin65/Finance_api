@@ -31,9 +31,16 @@
               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
               [class.active]="selectedUser?._id === user._id"
               (click)="selectUser(user)">
-              <div>
-                <div class="fw-semibold">{{ user.name }}</div>
-                <small>{{ user.email }}</small>
+              <div class="d-flex align-items-center gap-2">
+                <img
+                  [src]="authService.getAvatarUrl(user.name, user.avatar_style)"
+                  [alt]="user.name"
+                  style="width:36px; height:36px; border-radius:50%; object-fit:cover; flex-shrink:0;"
+                />
+                <div>
+                  <div class="fw-semibold">{{ user.name }}</div>
+                  <small>{{ user.email }}</small>
+                </div>
               </div>
               <span class="badge bg-primary rounded-pill">
                 {{ (user.expenses || []).length }}
@@ -75,8 +82,15 @@
 
         <!-- User Info + Delete -->
         <div class="card border-0 shadow-sm mb-3">
-          <div class="card-header bg-dark text-white d-flex justify-content-between">
-            <span>📋 {{ selectedUser.name }}</span>
+          <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <img
+                [src]="authService.getAvatarUrl(selectedUser.name, selectedUser.avatar_style)"
+                [alt]="selectedUser.name"
+                style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.3);"
+              />
+              <span>{{ selectedUser.name }}</span>
+            </div>
             <button class="btn btn-danger btn-sm"
                     (click)="deleteUser(selectedUser._id)">🗑️ Delete User</button>
           </div>

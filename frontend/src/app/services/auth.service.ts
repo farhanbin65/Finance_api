@@ -11,54 +11,66 @@ export class AuthService {
 
   constructor(private http: HttpClient, private router: Router) {}
 
-login(email: string, password: string): Observable<any> {
-  return this.http.post<any>(`${this.apiUrl}/login`, { email, password }, { withCredentials: true }).pipe(
-    tap(res => {
-      // Token is stored as HttpOnly cookie by the server — never touch it here
-      localStorage.setItem('user_id', res.user_id);
-      localStorage.setItem('finance_id', res.finance_id);
-      localStorage.setItem('name', res.name);
-      localStorage.setItem('admin', String(res.admin));
-      // Store expiry time (30 min) so isLoggedIn() can check it without reading the cookie
-      localStorage.setItem('session_exp', String(Date.now() + 30 * 60 * 1000));
-    })
-  );
-}
+  login(email: string, password: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/login`, { email, password }).pipe(
+      tap(res => {
+        localStorage.setItem('token', res.token);
+        localStorage.setItem('user_id', res.user_id);
+        localStorage.setItem('finance_id', res.finance_id);
+        localStorage.setItem('name', res.name);
+        localStorage.setItem('admin', res.admin);
+        localStorage.setItem('avatar_style', res.avatar_style || 'avataaars');
+      })
+    );
+  }
 
-getFinanceId(): string | null {
-  return localStorage.getItem('finance_id');
-}
-
-  register(name: string, email: string, password: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/register`, { name, email, password });
+  register(name: string, email: string, password: string, avatarStyle: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/register`, { name, email, password, avatar_style: avatarStyle });
   }
 
   logout(): void {
-    // Server will read the cookie and blacklist it, then clear the cookie
-    this.http.post(`${this.apiUrl}/logout`, {}, { withCredentials: true }).subscribe();
+    const token = this.getToken();
+    if (token) {
+      this.http.post(`${this.apiUrl}/logout`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).subscribe();
+    }
     localStorage.clear();
     this.router.navigate(['/login']);
   }
 
-  getUserId(): string | null {
-    return localStorage.getItem('user_id');
+  updateAvatar(style: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/profile/avatar`, { avatar_style: style }).pipe(
+      tap(() => localStorage.setItem('avatar_style', style))
+    );
   }
 
-  getName(): string | null {
-    return localStorage.getItem('name');
+  getProfile(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/profile`);
   }
 
-  isAdmin(): boolean {
-    return localStorage.getItem('admin') === 'true';
+  getToken(): string | null { return localStorage.getItem('token'); }
+  getUserId(): string | null { return localStorage.getItem('user_id'); }
+  getFinanceId(): string | null { return localStorage.getItem('finance_id'); }
+  getName(): string | null { return localStorage.getItem('name'); }
+  getAvatarStyle(): string { return localStorage.getItem('avatar_style') || 'avataaars'; }
+
+  getAvatarUrl(name?: string, style?: string): string {
+    const seed = name || this.getName() || 'user';
+    const avatarStyle = style || this.getAvatarStyle();
+    return `https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
   }
+
+  isAdmin(): boolean { return localStorage.getItem('admin') === 'true'; }
 
   isLoggedIn(): boolean {
-    const exp = localStorage.getItem('session_exp');
-    if (!exp) return false;
-    if (Date.now() > Number(exp)) {
-      localStorage.clear();
-      return false;
-    }
-    return true;
+    const token = this.getToken();
+    if (!token) return false;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expired = payload.exp * 1000 < Date.now();
+      if (expired) { localStorage.clear(); return false; }
+      return true;
+    } catch { return false; }
   }
 }

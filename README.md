@@ -29,20 +29,24 @@ Key design decisions include:
 - **Two-collection MongoDB design** — authentication data is separated from financial data, linked via a `finance_id` reference
 - **JWT-based stateless authentication** — tokens are issued on login, validated on every request, and blacklisted on logout
 - **HTTP Interceptor pattern** — the Angular frontend automatically attaches JWT tokens to all outgoing requests without requiring manual header management in every service call
-- **Blueprint-based Flask architecture** — the backend is modularised into separate blueprints per resource (auth, users, expenses, budgets, alerts, categories)
+- **Blueprint-based Flask architecture** — the backend is modularised into separate blueprints per resource (auth, users, expenses, budgets, alerts, categories, admin)
+- **Avatar system** — users choose an avatar style at registration; avatars are generated on-demand via the DiceBear API and displayed throughout the app including the admin dashboard
 
 ---
 
 ## Features
 
 - **User Authentication** — Register, login, and logout with JWT token-based security
+- **Avatar Picker** — Choose from 6 avatar styles at registration (Cartoon, Robot, Pixel, Minimal, Adventure, Sketch), powered by DiceBear
+- **User Profile** — View and update profile details and avatar style
 - **Role-Based Access Control** — Admin and regular user roles with different levels of access
 - **Expense Management** — Full CRUD (Create, Read, Update, Delete) for expenses with pagination support
 - **Budget Management** — Set monthly budgets per spending category
 - **Spending Alerts** — Configure threshold-based alerts per category
 - **Category Management** — Custom income and expense categories per user
-- **Interactive Dashboard** — Chart.js visualisations for spending summaries and trends
-- **Admin Dashboard** — Admin users can view and manage data across all users
+- **Interactive Dashboard** — Chart.js doughnut chart for spending summaries by category
+- **Admin Dashboard** — View platform-wide stats, all user expenses, and manage users
+- **Admin User List** — Browse all registered users with avatars, search by name or email, and drill into individual profiles
 - **Token Expiry Handling** — Frontend automatically detects expired JWT tokens and redirects to login
 
 ---
@@ -54,10 +58,11 @@ Key design decisions include:
 |---|---|
 | Angular 17+ (Standalone) | Frontend framework |
 | TypeScript | Language |
-| Chart.js | Data visualisations |
-| Angular Router | Client-side routing |
+| Chart.js | Data visualisations (doughnut chart) |
+| Angular Router | Client-side routing with route guards |
 | Angular HttpClient | HTTP requests to Flask API |
 | JWT (decoded client-side) | Token expiry checking |
+| DiceBear API | On-demand avatar image generation |
 
 ### Backend
 | Technology | Purpose |
@@ -88,7 +93,8 @@ Key design decisions include:
 │       ↓            ↓            ↓                       │
 │  expenses     auth.service  Attaches JWT                │
 │  budgets      finance.service  Bearer token             │
-│  alerts       to every request                          │
+│  admin        to every request                          │
+│  profile                                                │
 └─────────────────────┬───────────────────────────────────┘
                        │ HTTP Requests
                        │ (with Authorization: Bearer <token>)
@@ -98,12 +104,17 @@ Key design decisions include:
 │                  (http://127.0.0.1:5001)                │
 │                                                         │
 │  app.py                                                 │
-│   ├── blueprints/auth        /login, /register, /logout │
+│   ├── blueprints/auth        /login, /register,         │
+│   │                          /logout, /profile,         │
+│   │                          /profile/avatar            │
 │   ├── blueprints/users       /users                     │
 │   ├── blueprints/expenses    /users/:id/expenses        │
 │   ├── blueprints/budgets     /users/:id/budgets         │
 │   ├── blueprints/alerts      /users/:id/alerts          │
-│   └── blueprints/categories  /users/:id/categories      │
+│   ├── blueprints/categories  /users/:id/categories      │
+│   └── blueprints/admin       /admin/stats,              │
+│                               /admin/expenses,          │
+│                               /admin/budgets            │
 │                                                         │
 │  decorators.py → jwt_required middleware                │
 │  globals.py    → MongoDB connection + SECRET_KEY        │
@@ -122,8 +133,8 @@ Key design decisions include:
 │   password_hash             categories []               │
 │   finance_id ──────────────▶expenses []                 │
 │   admin                     monthly_budgets []          │
-│   created_at                alerts []                   │
-│                             created_at                  │
+│   avatar_style              alerts []                   │
+│   created_at                created_at                  │
 │                                                         │
 │   blacklist collection                                  │
 │   ──────────────────                                    │
@@ -138,7 +149,7 @@ Key design decisions include:
 MongoDB is used with **three collections** inside the `finance_DB` database:
 
 ### `users` — Authentication Collection
-Stores login credentials and links to financial data.
+Stores login credentials, role, avatar preference, and a link to financial data.
 
 ```json
 {
@@ -148,6 +159,7 @@ Stores login credentials and links to financial data.
   "password_hash": "<bcrypt hash>",
   "finance_id": "<ObjectId of finance_data document>",
   "admin": false,
+  "avatar_style": "avataaars",
   "created_at": "2024-01-01"
 }
 ```
@@ -174,7 +186,8 @@ Stores all financial records for a user as embedded arrays.
       "date": "2024-03-15",
       "merchant": "Tesco",
       "note": "Weekly shop",
-      "payment_method": "card"
+      "payment_method": "card",
+      "type": "expense"
     }
   ],
   "monthly_budgets": [
@@ -202,14 +215,16 @@ Base URL: `http://127.0.0.1:5001`
 ### Auth
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
-| POST | `/login` | Login with email & password, returns JWT | No |
-| POST | `/register` | Register new user, creates finance_data doc | No |
+| POST | `/login` | Login with email & password, returns JWT + user info | No |
+| POST | `/register` | Register new user with avatar style, creates finance_data doc | No |
 | POST | `/logout` | Blacklists the current JWT token | Yes |
+| GET | `/profile` | Get current user's profile (name, email, avatar) | Yes |
+| PUT | `/profile/avatar` | Update current user's avatar style | Yes |
 
 ### Users
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
-| GET | `/users` | Get all users (paginated) | No |
+| GET | `/users` | Get all users with avatar styles (paginated) | No |
 | GET | `/users/:id` | Get one user with all finance data | No |
 | POST | `/users` | Create a user directly | No |
 | PUT | `/users/:id` | Update user details | No |
@@ -251,7 +266,14 @@ Base URL: `http://127.0.0.1:5001`
 | PUT | `/users/:id/categories/:category_id` | Update category |
 | DELETE | `/users/:id/categories/:category_id` | Delete category |
 
-> **Note:** POST and PUT requests use `multipart/form-data` or `application/x-www-form-urlencoded` — not JSON.
+### Admin
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| GET | `/admin/stats` | Platform-wide income, expenses, balance, user count | Yes (Admin) |
+| GET | `/admin/expenses` | All expenses across all users, enriched with user & category info | Yes (Admin) |
+| GET | `/admin/budgets` | All budgets across all users with actual spend | Yes (Admin) |
+
+> **Note:** POST and PUT requests use `multipart/form-data` — not JSON. Auth and admin endpoints use JSON.
 
 ---
 
@@ -265,10 +287,12 @@ Base URL: `http://127.0.0.1:5001`
 3. Flask checks credentials against users collection
    - Validates bcrypt password hash
          ↓
-4. Flask returns JWT token containing:
-   - user_id, finance_id, name, admin, exp (30 min expiry)
+4. Flask returns a single JSON response containing:
+   - token (JWT), user_id, finance_id, name, admin, avatar_style
+   - JWT encodes: user_id, finance_id, name, admin, exp (30 min)
          ↓
-5. Angular stores token, finance_id, name, admin in localStorage
+5. Angular stores token, finance_id, name, admin, avatar_style
+   in localStorage
          ↓
 6. Angular HTTP Interceptor automatically attaches
    "Authorization: Bearer <token>" header to every request
@@ -332,36 +356,44 @@ finance-tracker/
 ├── backend/
 │   ├── blueprints/
 │   │   ├── auth/
-│   │   │   └── auth.py          # Login, register, logout
+│   │   │   └── auth.py             # Login, register, logout, profile, avatar
 │   │   ├── users/
-│   │   │   └── users.py         # User CRUD
+│   │   │   └── users.py            # User CRUD (returns avatar_style via auth join)
 │   │   ├── expenses/
-│   │   │   └── expenses.py      # Expense CRUD + pagination
+│   │   │   └── expenses.py         # Expense CRUD + pagination
 │   │   ├── budgets/
-│   │   │   └── budgets.py       # Budget CRUD
+│   │   │   └── budgets.py          # Budget CRUD
 │   │   ├── alerts/
-│   │   │   └── alerts.py        # Alert CRUD
-│   │   └── categories/
-│   │       └── categories.py    # Category CRUD
-│   ├── app.py                   # Flask app entry point, blueprint registration
-│   ├── globals.py               # MongoDB connection, SECRET_KEY
-│   └── decorators.py            # jwt_required middleware
+│   │   │   └── alerts.py           # Alert CRUD
+│   │   ├── categories/
+│   │   │   └── categories.py       # Category CRUD
+│   │   └── admin/
+│   │       └── admin.py            # Admin stats, all expenses, all budgets
+│   ├── app.py                      # Flask app entry point, blueprint registration
+│   ├── globals.py                  # MongoDB connection, SECRET_KEY
+│   └── decorators.py               # jwt_required middleware
 │
 └── frontend/
     └── src/
         └── app/
-            ├── expense-form/    # Expense form component
-            ├── expenses/        # Expenses list component
-            ├── guards/          # Route guards (auth protection)
-            ├── home/            # Dashboard / home component
+            ├── admin/              # Admin split-panel (user list + detail)
+            ├── admin-users/        # Full all-users table with avatars
+            ├── admin-user-detail/  # Individual user detail view for admin
+            ├── budgets/            # Budgets list and management
+            ├── categories/         # Category management
+            ├── expense-form/       # Add / edit expense form
+            ├── expenses/           # Expenses list with filters
+            ├── guards/             # AuthGuard — protects routes
+            ├── home/               # Dashboard (user + admin views, Chart.js)
             ├── interceptors/
-            │   └── auth.interceptor.ts   # JWT header injection
-            ├── login/           # Login component
-            ├── navigation/      # Nav component
-            ├── register/        # Register component
+            │   └── auth.interceptor.ts    # Injects JWT into every request
+            ├── login/              # Login component
+            ├── navigation/         # Nav bar with avatar display
+            ├── profile/            # User profile + avatar picker
+            ├── register/           # Registration with avatar style picker
             └── services/
-                ├── auth.service.ts       # Auth, JWT, localStorage
-                └── finance.service.ts    # Expenses, budgets, alerts API calls
+                ├── auth.service.ts        # Auth, JWT, localStorage, avatar URL helper
+                └── finance.service.ts     # Expenses, budgets, alerts, admin API calls
 ```
 
 ---
@@ -381,3 +413,5 @@ finance-tracker/
 - All financial data is embedded within the `finance_data` document as arrays (expenses, budgets, alerts, categories). This is a **document-oriented design** suited to MongoDB, where a user's complete financial profile is retrieved in a single database query.
 - The `finance_id` stored in the `users` collection acts as a foreign key reference to the corresponding `finance_data` document, keeping authentication data cleanly separated from financial data.
 - New users are automatically provisioned with 8 default categories (Food, Transport, Shopping, Bills, Health, Entertainment, Salary, Freelance) on registration.
+- Avatar styles are stored in the `users` (auth) collection and joined into the `/users` response at query time using a bulk email lookup — keeping the `finance_data` collection free of auth concerns.
+- The `avatar_style` field drives the [DiceBear API](https://www.dicebear.com/) URL used throughout the frontend (`https://api.dicebear.com/7.x/{style}/svg?seed={name}`). The user's name is used as the seed so the avatar is consistent across sessions without storing an image.

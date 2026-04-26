@@ -18,6 +18,7 @@
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
+            <th></th>
             <th>Name</th>
             <th>Email</th>
             <th>Expenses</th>
@@ -29,6 +30,13 @@
         <tbody>
           @for (user of filteredUsers; track user._id) {
             <tr>
+              <td style="width:48px;">
+                <img
+                  [src]="authService.getAvatarUrl(user.name, user.avatar_style)"
+                  [alt]="user.name"
+                  style="width:36px; height:36px; border-radius:50%; object-fit:cover;"
+                />
+              </td>
               <td class="fw-semibold">{{ user.name }}</td>
               <td class="text-muted">{{ user.email }}</td>
               <td><span class="badge bg-secondary">{{ user.expenses?.length || 0 }}</span></td>
@@ -43,7 +51,7 @@
           }
           @if (filteredUsers.length === 0) {
             <tr>
-              <td colspan="6" class="text-center text-muted py-4">No users found.</td>
+              <td colspan="7" class="text-center text-muted py-4">No users found.</td>
             </tr>
           }
         </tbody>

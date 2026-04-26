@@ -9,6 +9,7 @@ import { AuthGuard } from './guards/auth.guard';
 import { AdminComponent } from './admin/admin.component';
 import { AdminUserDetailComponent } from './admin-user-detail/admin-user-detail.component';
 import { AdminUsersComponent } from './admin-users/admin-users.component';
+import { ProfileComponent } from './profile/profile.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -21,5 +22,6 @@ export const routes: Routes = [
   { path: 'expenses/add', component: ExpenseFormComponent, canActivate: [AuthGuard] },
   { path: 'expenses/edit/:id', component: ExpenseFormComponent, canActivate: [AuthGuard] },
   { path: 'budgets', component: BudgetsComponent, canActivate: [AuthGuard] },
+  { path: 'profile', component: ProfileComponent, canActivate: [AuthGuard] },
   { path: '**', redirectTo: '/login' }
 ];

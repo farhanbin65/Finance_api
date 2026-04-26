@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { FinanceService } from '../services/finance.service';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-admin-users',
@@ -15,7 +16,7 @@ export class AdminUsersComponent implements OnInit {
   filteredUsers: any[] = [];
   searchTerm = '';
 
-  constructor(private financeService: FinanceService) {}
+  constructor(private financeService: FinanceService, public authService: AuthService) {}
 
   ngOnInit(): void {
     this.financeService.getAllUsers().subscribe(users => {

@@ -2,72 +2,63 @@
   <div class="card border-0 shadow-lg auth-card">
     <div class="card-body p-5">
 
-      <!-- Logo -->
       <div class="text-center mb-4">
-        <h2>💰 Finance Tracker</h2>
-        <p class="text-muted">Create your account</p>
+        <h2 style="font-family:'Syne',sans-serif; color:#f1f5f9;">💰 Finance Tracker</h2>
+        <p style="color:#94a3b8;">Create your account</p>
       </div>
 
-      <!-- Messages -->
       @if (errorMessage) {
-        <div class="alert alert-danger py-2">{{ errorMessage }}</div>
+        <div class="alert" style="background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); color:#ef4444; border-radius:10px; padding:12px 16px; margin-bottom:16px;">{{ errorMessage }}</div>
       }
       @if (successMessage) {
-        <div class="alert alert-success py-2">{{ successMessage }}</div>
+        <div class="alert" style="background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:#10b981; border-radius:10px; padding:12px 16px; margin-bottom:16px;">{{ successMessage }}</div>
       }
 
-      <!-- Form -->
       <div class="mb-3">
-        <label class="form-label fw-semibold">Full Name</label>
-        <input
-          type="text"
-          class="form-control"
-          [(ngModel)]="name"
-          placeholder="John Smith"
-        />
+        <label class="form-label">Full Name</label>
+        <input type="text" class="form-control" [(ngModel)]="name" placeholder="John Smith"/>
       </div>
 
       <div class="mb-3">
-        <label class="form-label fw-semibold">Email</label>
-        <input
-          type="email"
-          class="form-control"
-          [(ngModel)]="email"
-          placeholder="you@example.com"
-        />
+        <label class="form-label">Email</label>
+        <input type="email" class="form-control" [(ngModel)]="email" placeholder="you@example.com"/>
       </div>
 
       <div class="mb-3">
-        <label class="form-label fw-semibold">Password</label>
-        <input
-          type="password"
-          class="form-control"
-          [(ngModel)]="password"
-          placeholder="Min. 6 characters"
-        />
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" [(ngModel)]="password" placeholder="Min. 6 characters"/>
       </div>
 
       <div class="mb-4">
-        <label class="form-label fw-semibold">Confirm Password</label>
-        <input
-          type="password"
-          class="form-control"
-          [(ngModel)]="confirmPassword"
-          placeholder="••••••••"
-          (keyup.enter)="onRegister()"
-        />
+        <label class="form-label">Confirm Password</label>
+        <input type="password" class="form-control" [(ngModel)]="confirmPassword" placeholder="••••••••"/>
       </div>
 
-      <button
-        class="btn btn-dark w-100 mb-3"
-        (click)="onRegister()"
-        [disabled]="isLoading">
+      <!-- Avatar Picker -->
+      <div class="mb-4">
+        <label class="form-label">Choose Your Avatar Style</label>
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          @for (style of avatarStyles; track style.id) {
+            <div
+              (click)="selectedStyle = style.id"
+              class="text-center"
+              style="cursor:pointer; padding:8px; border-radius:12px; border:2px solid; transition:all .2s; width:80px;"
+              [style.border-color]="selectedStyle === style.id ? '#f4b942' : 'rgba(255,255,255,.1)'"
+              [style.background]="selectedStyle === style.id ? 'rgba(244,185,66,.1)' : 'rgba(255,255,255,.03)'">
+              <img [src]="getPreviewUrl(style.id)" [alt]="style.label" style="width:48px; height:48px; border-radius:50%;"/>
+              <div style="font-size:11px; margin-top:4px; color:#94a3b8;">{{ style.label }}</div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <button class="btn btn-success w-100 mb-3" (click)="onRegister()" [disabled]="isLoading">
         {{ isLoading ? 'Creating account...' : 'Create Account' }}
       </button>
 
-      <p class="text-center text-muted mb-0">
+      <p class="text-center mb-0" style="color:#94a3b8;">
         Already have an account?
-        <a routerLink="/login" class="text-decoration-none fw-semibold">Sign In</a>
+        <a routerLink="/login" style="color:#f4b942; text-decoration:none; font-weight:600;">Sign In</a>
       </p>
 
     </div>

@@ -5,6 +5,7 @@ from decorators import jwt_required
 import globals
 
 users = globals.db.finance_data
+auth_users = globals.db.users
 users_bp = Blueprint("users_bp", __name__)
 
 
@@ -35,6 +36,16 @@ def getAllUsers():
         for user in users_cursor:
             user['_id'] = str(user['_id'])
             data_to_return.append(user)
+
+        # Bulk-fetch avatar_style from auth collection by email
+        emails = [u.get('email') for u in data_to_return if u.get('email')]
+        auth_docs = list(auth_users.find(
+            {'email': {'$in': emails}},
+            {'email': 1, 'avatar_style': 1}
+        ))
+        avatar_map = {doc['email']: doc.get('avatar_style', 'avataaars') for doc in auth_docs}
+        for u in data_to_return:
+            u['avatar_style'] = avatar_map.get(u.get('email', ''), 'avataaars')
 
         return make_response(json.loads(json_util.dumps(data_to_return)), 200)
 

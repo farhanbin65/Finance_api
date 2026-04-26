@@ -48,10 +48,12 @@ def login():
     }, globals.SECRET_KEY, algorithm='HS256')
 
     resp = make_response(jsonify({
+        'token': token,
         'user_id': str(user['_id']),
         'finance_id': finance_id,
         'name': user.get('name', user.get('username', '')),
-        'admin': user.get('admin', False)
+        'admin': user.get('admin', False),
+        'avatar_style': user.get('avatar_style', 'avataaars')
     }), 200)
 
     resp.set_cookie(
@@ -61,7 +63,6 @@ def login():
         samesite='Strict',
         max_age=30 * 60
     )
-
     return resp
 
 
@@ -118,6 +119,7 @@ def register():
         "password_hash": hashed,
         "finance_id": finance_id,
         "admin": False,
+        "avatar_style": data.get('avatar_style', 'avataaars'),
         "created_at": datetime.datetime.now().strftime('%Y-%m-%d')
     }
     auth_users.insert_one(auth_doc)
@@ -136,3 +138,48 @@ def logout():
     resp = make_response(jsonify({'message': 'Logged out'}), 200)
     resp.delete_cookie('token', samesite='Strict')
     return resp
+
+
+@auth_bp.route('/profile/avatar', methods=['PUT'])
+def update_avatar():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return make_response(jsonify({'message': 'Token required'}), 401)
+    try:
+        data_token = jwt.decode(token, globals.SECRET_KEY, algorithms=['HS256'])
+        user_id = data_token.get('user_id')
+    except:
+        return make_response(jsonify({'message': 'Invalid token'}), 401)
+
+    data = request.get_json()
+    if not data or 'avatar_style' not in data:
+        return make_response(jsonify({'message': 'avatar_style required'}), 400)
+
+    auth_users.update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {'avatar_style': data['avatar_style']}}
+    )
+    return make_response(jsonify({'message': 'Avatar updated'}), 200)
+
+
+@auth_bp.route('/profile', methods=['GET'])
+def get_profile():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return make_response(jsonify({'message': 'Token required'}), 401)
+    try:
+        data_token = jwt.decode(token, globals.SECRET_KEY, algorithms=['HS256'])
+        user_id = data_token.get('user_id')
+    except:
+        return make_response(jsonify({'message': 'Invalid token'}), 401)
+
+    user = auth_users.find_one({'_id': ObjectId(user_id)})
+    if not user:
+        return make_response(jsonify({'message': 'User not found'}), 404)
+
+    return make_response(jsonify({
+        'name': user.get('name', ''),
+        'email': user.get('email', ''),
+        'avatar_style': user.get('avatar_style', 'avataaars'),
+        'created_at': user.get('created_at', '')
+    }), 200)

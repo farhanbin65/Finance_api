@@ -28,6 +28,7 @@ export class HomeComponent implements OnInit, AfterViewInit {
   currentUser: any = null;
   chartData: { label: string, amount: number }[] = [];
   isAdmin = false;
+  private chartInstance: Chart | null = null;
 
   constructor(
     private financeService: FinanceService,
@@ -135,7 +136,12 @@ export class HomeComponent implements OnInit, AfterViewInit {
     if (!isPlatformBrowser(this.platformId)) return;
     if (!this.chartRef) return;
 
-    new Chart(this.chartRef.nativeElement, {
+    if (this.chartInstance) {
+      this.chartInstance.destroy();
+      this.chartInstance = null;
+    }
+
+    this.chartInstance = new Chart(this.chartRef.nativeElement, {
       type: 'doughnut',
       data: {
         labels: this.chartData.map(d => d.label),

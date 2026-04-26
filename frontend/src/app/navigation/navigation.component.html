@@ -33,6 +33,9 @@
       <li class="nav-item ms-3">
         <span class="text-light small">👤 {{ authService.getName() }}</span>
       </li>
+      <img [src]="authService.getAvatarUrl()" 
+      [alt]="authService.getName()"
+      style="width:34px; height:34px; border-radius:50%; border:2px solid rgba(244,185,66,.4); object-fit:cover;"/>
 
       <li class="nav-item ms-2">
         <button class="btn btn-outline-light btn-sm" (click)="logout()">Logout</button>

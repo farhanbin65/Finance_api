@@ -1,6 +1,8 @@
 from pymongo import MongoClient
+import os
 
-SECRET_KEY = 'mysecret'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'mysecret')
+MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/')
 
-client = MongoClient("mongodb://localhost:27017/")
+client = MongoClient(MONGO_URI)
 db = client.finance_DB

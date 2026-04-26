@@ -7,7 +7,7 @@ import { Router } from '@angular/router';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
 
-  private apiUrl = 'http://127.0.0.1:5001';
+  private apiUrl = 'https://finance-api-jn7k.onrender.com';
 
   constructor(private http: HttpClient, private router: Router) {}
 

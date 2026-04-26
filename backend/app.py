@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.url_map.strict_slashes = False
 CORS(app, resources={r"/*": {"origins": [
     "http://localhost:4200",
-    "https://your-app.vercel.app"
+    "https://finance-api-tan.vercel.app"
 ]}}, supports_credentials=True)
 
 app.register_blueprint(auth_bp)

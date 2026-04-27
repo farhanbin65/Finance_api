@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 @Injectable({ providedIn: 'root' })
 export class FinanceService {
 
-  private apiUrl = 'https://finance-api-jn7k.onrender.com';
+  private apiUrl = 'http://localhost:5001';
 
   constructor(private http: HttpClient, private authService: AuthService) {}
 

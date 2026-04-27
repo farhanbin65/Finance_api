@@ -2,14 +2,17 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { Router } from '@angular/router';
+import { AuthService as Auth0Service } from '@auth0/auth0-angular';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
 
-  private apiUrl = 'https://finance-api-jn7k.onrender.com';
+  private apiUrl = 'http://localhost:5001';
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(
+    private http: HttpClient,
+    private auth0: Auth0Service
+  ) {}
 
   login(email: string, password: string): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/login`, { email, password }).pipe(
@@ -36,7 +39,8 @@ export class AuthService {
       }).subscribe();
     }
     localStorage.clear();
-    this.router.navigate(['/login']);
+    // End the Auth0 session too, otherwise Auth0 re-logs the user in automatically
+    this.auth0.logout({ logoutParams: { returnTo: window.location.origin + '/login' } });
   }
 
   updateAvatar(style: string): Observable<any> {
@@ -62,6 +66,19 @@ export class AuthService {
   }
 
   isAdmin(): boolean { return localStorage.getItem('admin') === 'true'; }
+
+  auth0Exchange(idToken: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/auth0/exchange`, { id_token: idToken }).pipe(
+      tap(res => {
+        localStorage.setItem('token', res.token);
+        localStorage.setItem('user_id', res.user_id);
+        localStorage.setItem('finance_id', res.finance_id);
+        localStorage.setItem('name', res.name);
+        localStorage.setItem('admin', String(res.admin));
+        localStorage.setItem('avatar_style', res.avatar_style || 'avataaars');
+      })
+    );
+  }
 
   isLoggedIn(): boolean {
     const token = this.getToken();

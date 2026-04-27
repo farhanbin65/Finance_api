@@ -4,6 +4,9 @@ import bcrypt
 import jwt
 import globals
 import datetime
+import requests as http_requests
+from jose import jwt as jose_jwt
+from jose.exceptions import JWTError
 
 auth_bp = Blueprint("auth_bp", __name__)
 
@@ -32,6 +35,9 @@ def login():
     # Check password — support both field names
     stored = user.get('password_hash') or user.get('password', '')
     input_pw = data.get('password', '')
+
+    if not stored:
+        return make_response(jsonify({'message': 'This account uses Auth0. Please sign in with Auth0.'}), 401)
 
     if not bcrypt.checkpw(input_pw.encode('utf-8'), stored.encode('utf-8')):
         return make_response(jsonify({'message': 'Invalid credentials'}), 401)
@@ -128,6 +134,124 @@ def register():
         'message': 'Registered successfully',
         'finance_id': finance_id
     }), 201)
+
+
+@auth_bp.route('/auth0/exchange', methods=['POST'])
+def auth0_exchange():
+    """Validate an Auth0 ID token and return our own HS256 JWT."""
+    if not globals.AUTH0_DOMAIN or not globals.AUTH0_CLIENT_ID:
+        return make_response(jsonify({'message': 'Auth0 not configured'}), 503)
+
+    data = request.get_json()
+    id_token = data.get('id_token') if data else None
+    if not id_token:
+        return make_response(jsonify({'message': 'id_token required'}), 400)
+
+    # Fetch Auth0 public keys
+    try:
+        jwks = http_requests.get(
+            f'https://{globals.AUTH0_DOMAIN}/.well-known/jwks.json', timeout=5
+        ).json()
+    except Exception:
+        return make_response(jsonify({'message': 'Could not reach Auth0'}), 502)
+
+    # Match the token's kid to a JWKS key
+    try:
+        unverified_header = jose_jwt.get_unverified_header(id_token)
+    except JWTError:
+        return make_response(jsonify({'message': 'Invalid token header'}), 401)
+
+    rsa_key = next(
+        (
+            {'kty': k['kty'], 'kid': k['kid'], 'use': k['use'], 'n': k['n'], 'e': k['e']}
+            for k in jwks.get('keys', [])
+            if k['kid'] == unverified_header.get('kid')
+        ),
+        None
+    )
+    if not rsa_key:
+        return make_response(jsonify({'message': 'Public key not found'}), 401)
+
+    # Verify and decode the ID token
+    try:
+        payload = jose_jwt.decode(
+            id_token,
+            rsa_key,
+            algorithms=['RS256'],
+            audience=globals.AUTH0_CLIENT_ID,
+            issuer=f'https://{globals.AUTH0_DOMAIN}/'
+        )
+    except JWTError as e:
+        return make_response(jsonify({'message': 'Token verification failed', 'detail': str(e)}), 401)
+
+    auth0_sub = payload.get('sub', '')
+    email = payload.get('email', '')
+    name = payload.get('name') or (email.split('@')[0] if email else 'User')
+
+    # Find existing user by auth0_sub, then fall back to email
+    user = auth_users.find_one({'auth0_sub': auth0_sub})
+    if user is None and email:
+        user = auth_users.find_one({'email': email})
+
+    if user is None:
+        # First-time Auth0 user — provision account
+        all_finance = list(finance_users.find({}, {'user_id': 1}))
+        next_id = max((u.get('user_id', 0) for u in all_finance), default=0) + 1
+
+        default_categories = [
+            {'category_id': 1, 'user_id': next_id, 'name': 'Food', 'type': 'expense'},
+            {'category_id': 2, 'user_id': next_id, 'name': 'Transport', 'type': 'expense'},
+            {'category_id': 3, 'user_id': next_id, 'name': 'Shopping', 'type': 'expense'},
+            {'category_id': 4, 'user_id': next_id, 'name': 'Bills', 'type': 'expense'},
+            {'category_id': 5, 'user_id': next_id, 'name': 'Health', 'type': 'expense'},
+            {'category_id': 6, 'user_id': next_id, 'name': 'Entertainment', 'type': 'expense'},
+            {'category_id': 7, 'user_id': next_id, 'name': 'Salary', 'type': 'income'},
+            {'category_id': 8, 'user_id': next_id, 'name': 'Freelance', 'type': 'income'},
+        ]
+        finance_result = finance_users.insert_one({
+            'user_id': next_id,
+            'name': name,
+            'email': email,
+            'created_at': datetime.datetime.now().strftime('%Y-%m-%d'),
+            'categories': default_categories,
+            'expenses': [],
+            'monthly_budgets': [],
+            'alerts': []
+        })
+        finance_id = str(finance_result.inserted_id)
+        auth_users.insert_one({
+            'name': name,
+            'email': email,
+            'auth0_sub': auth0_sub,
+            'finance_id': finance_id,
+            'admin': False,
+            'avatar_style': 'avataaars',
+            'created_at': datetime.datetime.now().strftime('%Y-%m-%d')
+        })
+        user = auth_users.find_one({'auth0_sub': auth0_sub})
+    elif 'auth0_sub' not in user:
+        # Link existing email/password user to their Auth0 identity
+        auth_users.update_one({'_id': user['_id']}, {'$set': {'auth0_sub': auth0_sub}})
+
+    finance_id = user.get('finance_id', '')
+    token = jwt.encode({
+        'user_id': str(user['_id']),
+        'finance_id': finance_id,
+        'name': user.get('name', name),
+        'admin': user.get('admin', False),
+        'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=30)
+    }, globals.SECRET_KEY, algorithm='HS256')
+
+    resp = make_response(jsonify({
+        'token': token,
+        'user_id': str(user['_id']),
+        'finance_id': finance_id,
+        'name': user.get('name', name),
+        'admin': user.get('admin', False),
+        'avatar_style': user.get('avatar_style', 'avataaars')
+    }), 200)
+    resp.set_cookie('token', token, httponly=True, samesite='Strict', max_age=30 * 60)
+    return resp
 
 
 @auth_bp.route('/logout', methods=['POST'])

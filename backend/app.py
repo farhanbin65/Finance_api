@@ -11,10 +11,7 @@ from blueprints.admin.admin import admin_bp
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
-CORS(app, resources={r"/*": {"origins": [
-    "http://localhost:4200",
-    "https://finance-api-tan.vercel.app"
-]}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": "http://localhost:4200"}}, supports_credentials=True)
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(users_bp)

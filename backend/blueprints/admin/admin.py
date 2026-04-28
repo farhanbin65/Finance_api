@@ -1,9 +1,32 @@
-from flask import Blueprint, make_response, jsonify
+from flask import Blueprint, make_response, jsonify, request
+from bson import ObjectId
 import globals
+import datetime
+import jwt
+from decorators import jwt_required
 
 admin_bp = Blueprint("admin_bp", __name__)
 
 finance_data = globals.db.finance_data
+auth_users = globals.db.users
+blacklist = globals.db.blacklist
+
+
+def admin_required(func):
+    from functools import wraps
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return make_response(jsonify({'message': 'Token required'}), 401)
+        try:
+            data = jwt.decode(token, globals.SECRET_KEY, algorithms=['HS256'])
+            if not data.get('admin'):
+                return make_response(jsonify({'message': 'Admin access required'}), 403)
+        except Exception:
+            return make_response(jsonify({'message': 'Invalid token'}), 401)
+        return func(*args, **kwargs)
+    return wrapper
 
 
 @admin_bp.route('/admin/stats', methods=['GET'])
@@ -100,3 +123,50 @@ def getAdminBudgets():
 
     except Exception as e:
         return make_response(jsonify({'Error': str(e)}), 500)
+
+
+@admin_bp.route('/admin/users/<string:finance_id>', methods=['DELETE'])
+@admin_required
+def deleteAdminUser(finance_id):
+    """Hard-delete a user from both finance_data and auth_users."""
+    try:
+        user_doc = finance_data.find_one({'_id': ObjectId(finance_id)})
+        if not user_doc:
+            return make_response(jsonify({'error': 'User not found'}), 404)
+
+        email = user_doc.get('email')
+        finance_data.delete_one({'_id': ObjectId(finance_id)})
+        if email:
+            auth_users.delete_one({'email': email})
+
+        return make_response(jsonify({'message': 'User deleted'}), 200)
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
+
+
+@admin_bp.route('/admin/ban/<string:finance_id>', methods=['POST'])
+@admin_required
+def banAdminUser(finance_id):
+    """Ban a user: add email to blacklist, then delete their data."""
+    try:
+        user_doc = finance_data.find_one({'_id': ObjectId(finance_id)})
+        if not user_doc:
+            return make_response(jsonify({'error': 'User not found'}), 404)
+
+        email = user_doc.get('email')
+        if email:
+            blacklist.update_one(
+                {'type': 'banned_email', 'email': email},
+                {'$set': {
+                    'type': 'banned_email',
+                    'email': email,
+                    'banned_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }},
+                upsert=True
+            )
+            auth_users.delete_one({'email': email})
+
+        finance_data.delete_one({'_id': ObjectId(finance_id)})
+        return make_response(jsonify({'message': 'User banned'}), 200)
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)

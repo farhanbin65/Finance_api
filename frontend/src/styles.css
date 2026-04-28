@@ -432,6 +432,12 @@ h3.page-title {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 100px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
+/* ── SKELETON ANIMATION ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
 /* ── UTILITIES ── */
 .text-muted { color: var(--text-muted) !important; }
 .text-secondary-custom { color: var(--text-secondary) !important; }

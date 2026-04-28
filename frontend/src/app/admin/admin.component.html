@@ -80,19 +80,58 @@
           </div>
         </div>
 
-        <!-- User Info + Delete -->
+        <!-- User Info + Delete/Ban -->
         <div class="card border-0 shadow-sm mb-3">
-          <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-2">
-              <img
-                [src]="authService.getAvatarUrl(selectedUser.name, selectedUser.avatar_style)"
-                [alt]="selectedUser.name"
-                style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.3);"
-              />
-              <span>{{ selectedUser.name }}</span>
+          <div class="card-header bg-dark text-white">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div class="d-flex align-items-center gap-2">
+                <img
+                  [src]="authService.getAvatarUrl(selectedUser.name, selectedUser.avatar_style)"
+                  [alt]="selectedUser.name"
+                  style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.3);"
+                />
+                <span>{{ selectedUser.name }}</span>
+              </div>
+
+              <!-- Action buttons / confirm dialogs -->
+              @if (deleteConfirmId === selectedUser._id) {
+                <div class="d-flex flex-column gap-1" style="min-width:220px;">
+                  <div class="small text-warning">Type <strong>DELETE</strong> to confirm:</div>
+                  <input type="text" class="form-control form-control-sm"
+                         placeholder="DELETE"
+                         [(ngModel)]="deleteConfirmInput" />
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-danger flex-grow-1"
+                            [disabled]="deleteConfirmInput !== 'DELETE'"
+                            (click)="deleteUser(selectedUser._id)">Confirm Delete</button>
+                    <button class="btn btn-sm btn-secondary" (click)="cancelConfirm()">Cancel</button>
+                  </div>
+                </div>
+              } @else if (banConfirmId === selectedUser._id) {
+                <div class="d-flex flex-column gap-1" style="min-width:220px;">
+                  <div class="small text-warning">Type <strong>BAN</strong> to confirm:</div>
+                  <input type="text" class="form-control form-control-sm"
+                         placeholder="BAN"
+                         [(ngModel)]="banConfirmInput" />
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-warning flex-grow-1"
+                            [disabled]="banConfirmInput !== 'BAN' || banning"
+                            (click)="banUser(selectedUser._id)">
+                      @if (banning) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                      Confirm Ban
+                    </button>
+                    <button class="btn btn-sm btn-secondary" (click)="cancelConfirm()">Cancel</button>
+                  </div>
+                </div>
+              } @else {
+                <div class="d-flex gap-2">
+                  <button class="btn btn-warning btn-sm"
+                          (click)="confirmBanUser(selectedUser._id)">🚫 Ban</button>
+                  <button class="btn btn-danger btn-sm"
+                          (click)="confirmDeleteUser(selectedUser._id)">🗑️ Delete</button>
+                </div>
+              }
             </div>
-            <button class="btn btn-danger btn-sm"
-                    (click)="deleteUser(selectedUser._id)">🗑️ Delete User</button>
           </div>
           <div class="card-body">
             <p class="mb-1"><strong>Email:</strong> {{ selectedUser.email }}</p>

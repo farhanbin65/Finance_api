@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { FinanceService } from '../services/finance.service';
 import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
 
 @Component({
   selector: 'app-budgets',
@@ -22,7 +23,10 @@ export class BudgetsComponent implements OnInit {
   showModal = false;
   isEditing = false;
   saving = false;
+  deleting = false;
   deleteConfirmId: number | null = null;
+  deleteConfirmInput = '';
+  isLoading = true;
 
   form = {
     budget_id: null as number | null,
@@ -33,9 +37,6 @@ export class BudgetsComponent implements OnInit {
   selectedMonth = '';
   availableMonths: string[] = [];
 
-  successMessage = '';
-  errorMessage = '';
-
   isAdmin = false;
 
   private apiBase = 'http://127.0.0.1:5001';
@@ -43,7 +44,8 @@ export class BudgetsComponent implements OnInit {
   constructor(
     private financeService: FinanceService,
     private authService: AuthService,
-    private http: HttpClient
+    private http: HttpClient,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -52,31 +54,44 @@ export class BudgetsComponent implements OnInit {
   }
 
   loadData(): void {
+    this.isLoading = true;
     if (this.isAdmin) {
-      this.financeService.getAdminBudgets().subscribe(budgets => {
-        // Admin budgets already have spent calculated by backend
-        this.enrichedBudgets = budgets.map(b => {
-          const percent = b.budget_amount > 0
-            ? Math.min((b.spent / b.budget_amount) * 100, 100)
-            : 0;
-          return {
-            ...b,
-            percent: +percent.toFixed(1),
-            remaining: b.budget_amount - b.spent,
-            status: percent >= 100 ? 'danger' : percent >= 75 ? 'warning' : 'success'
-          };
-        });
-
-        this.availableMonths = [...new Set(this.enrichedBudgets.map(b => b.month))].sort().reverse();
-        this.applyMonthFilter();
+      this.financeService.getAdminBudgets().subscribe({
+        next: (budgets) => {
+          this.enrichedBudgets = budgets.map(b => {
+            const percent = b.budget_amount > 0
+              ? Math.min((b.spent / b.budget_amount) * 100, 100)
+              : 0;
+            return {
+              ...b,
+              percent: +percent.toFixed(1),
+              remaining: b.budget_amount - b.spent,
+              status: percent >= 100 ? 'danger' : percent >= 75 ? 'warning' : 'success'
+            };
+          });
+          this.availableMonths = [...new Set(this.enrichedBudgets.map(b => b.month))].sort().reverse();
+          this.applyMonthFilter();
+          this.isLoading = false;
+        },
+        error: () => {
+          this.isLoading = false;
+          this.toast.error('Failed to load budgets');
+        }
       });
     } else {
-      this.financeService.getCurrentUser().subscribe(user => {
-        if (!user) return;
-        this.budgets = user.monthly_budgets || [];
-        this.expenses = user.expenses || [];
-        this.alerts = user.alerts || [];
-        this.enrichBudgets();
+      this.financeService.getCurrentUser().subscribe({
+        next: (user) => {
+          if (!user) return;
+          this.budgets = user.monthly_budgets || [];
+          this.expenses = user.expenses || [];
+          this.alerts = user.alerts || [];
+          this.enrichBudgets();
+          this.isLoading = false;
+        },
+        error: () => {
+          this.isLoading = false;
+          this.toast.error('Failed to load budgets');
+        }
       });
     }
   }
@@ -121,7 +136,6 @@ export class BudgetsComponent implements OnInit {
   openAddModal(): void {
     this.isEditing = false;
     this.form = { budget_id: null, budget_amount: '', month: '' };
-    this.clearMessages();
     this.showModal = true;
   }
 
@@ -132,17 +146,11 @@ export class BudgetsComponent implements OnInit {
       budget_amount: String(b.budget_amount),
       month: b.month
     };
-    this.clearMessages();
     this.showModal = true;
   }
 
   closeModal(): void {
     this.showModal = false;
-  }
-
-  clearMessages(): void {
-    this.successMessage = '';
-    this.errorMessage = '';
   }
 
   private getUserId(): string {
@@ -151,7 +159,7 @@ export class BudgetsComponent implements OnInit {
 
   saveBudget(): void {
     if (!this.form.budget_amount || !this.form.month) {
-      this.errorMessage = 'All fields are required.';
+      this.toast.error('All fields are required');
       return;
     }
 
@@ -163,35 +171,29 @@ export class BudgetsComponent implements OnInit {
     body.append('month', this.form.month);
 
     if (this.isEditing && this.form.budget_id !== null) {
-      this.http.put(
-        `${this.apiBase}/users/${userId}/budgets/${this.form.budget_id}`,
-        body
-      ).subscribe({
+      this.http.put(`${this.apiBase}/users/${userId}/budgets/${this.form.budget_id}`, body).subscribe({
         next: () => {
           this.saving = false;
           this.showModal = false;
-          this.successMessage = 'Budget updated successfully.';
+          this.toast.success('Budget updated successfully');
           this.loadData();
         },
         error: (err) => {
           this.saving = false;
-          this.errorMessage = err.error?.Error || 'Failed to update budget.';
+          this.toast.error(err.error?.Error || 'Failed to update budget');
         }
       });
     } else {
-      this.http.post(
-        `${this.apiBase}/users/${userId}/budgets`,
-        body
-      ).subscribe({
+      this.http.post(`${this.apiBase}/users/${userId}/budgets`, body).subscribe({
         next: () => {
           this.saving = false;
           this.showModal = false;
-          this.successMessage = 'Budget added successfully.';
+          this.toast.success('Budget added successfully');
           this.loadData();
         },
         error: (err) => {
           this.saving = false;
-          this.errorMessage = err.error?.Error || 'Failed to add budget.';
+          this.toast.error(err.error?.Error || 'Failed to add budget');
         }
       });
     }
@@ -199,26 +201,30 @@ export class BudgetsComponent implements OnInit {
 
   confirmDelete(budgetId: number): void {
     this.deleteConfirmId = budgetId;
+    this.deleteConfirmInput = '';
   }
 
   cancelDelete(): void {
     this.deleteConfirmId = null;
+    this.deleteConfirmInput = '';
   }
 
   deleteBudget(budget: any): void {
+    if (this.deleteConfirmInput !== 'DELETE') return;
     const userId = this.isAdmin ? budget.finance_id : this.getUserId();
+    this.deleting = true;
 
-    this.http.delete(
-      `${this.apiBase}/users/${userId}/budgets/${budget.budget_id}`
-    ).subscribe({
+    this.http.delete(`${this.apiBase}/users/${userId}/budgets/${budget.budget_id}`).subscribe({
       next: () => {
+        this.deleting = false;
         this.deleteConfirmId = null;
-        this.successMessage = 'Budget deleted.';
+        this.toast.success('Budget deleted');
         this.loadData();
       },
       error: (err) => {
+        this.deleting = false;
         this.deleteConfirmId = null;
-        this.errorMessage = err.error?.Error || 'Failed to delete budget.';
+        this.toast.error(err.error?.Error || 'Failed to delete budget');
       }
     });
   }

@@ -1,6 +1,151 @@
-<a routerLink="/profile" class="d-flex align-items-center gap-2 text-decoration-none">
-  <img [src]="authService.getAvatarUrl()"
-       [alt]="authService.getName()"
-       style="width:34px; height:34px; border-radius:50%; border:2px solid rgba(244,185,66,.4); object-fit:cover;"/>
-  <span style="font-size:14px; color:#94a3b8; font-weight:500;">{{ authService.getName() }}</span>
-</a>
+<div class="container py-4" style="max-width:700px;">
+
+  <!-- Skeleton while loading -->
+  @if (isLoading) {
+    <div class="card p-4">
+      <div class="d-flex align-items-center gap-3 mb-4">
+        <div style="width:64px;height:64px;border-radius:50%;background:#e2e8f0;animation:pulse 1.5s infinite;"></div>
+        <div>
+          <div style="width:140px;height:16px;background:#e2e8f0;border-radius:6px;margin-bottom:8px;animation:pulse 1.5s infinite;"></div>
+          <div style="width:200px;height:12px;background:#e2e8f0;border-radius:6px;animation:pulse 1.5s infinite;"></div>
+        </div>
+      </div>
+      <div style="width:100%;height:40px;background:#e2e8f0;border-radius:8px;animation:pulse 1.5s infinite;"></div>
+    </div>
+  }
+
+  @if (!isLoading && profile) {
+
+    <!-- Header -->
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <img [src]="authService.getAvatarUrl(profile.name, selectedStyle)"
+           [alt]="profile.name"
+           style="width:64px;height:64px;border-radius:50%;border:3px solid rgba(79,70,229,.2);object-fit:cover;"/>
+      <div>
+        <h5 class="mb-0 fw-bold">{{ profile.name }}</h5>
+        <small class="text-muted">{{ profile.email }}</small>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4">
+      <li class="nav-item">
+        <button class="nav-link" [class.active]="activeTab === 'avatar'" (click)="activeTab = 'avatar'">Avatar</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" [class.active]="activeTab === 'name'" (click)="activeTab = 'name'">Username</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" [class.active]="activeTab === 'password'" (click)="activeTab = 'password'">Password</button>
+      </li>
+      <li class="nav-item ms-auto">
+        <button class="nav-link text-danger" [class.active]="activeTab === 'delete'" (click)="activeTab = 'delete'">Delete Account</button>
+      </li>
+    </ul>
+
+    <!-- Avatar Tab -->
+    @if (activeTab === 'avatar') {
+      <div class="card p-4">
+        <h6 class="fw-semibold mb-3">Choose Your Avatar Style</h6>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+          @for (style of avatarStyles; track style.id) {
+            <div (click)="selectedStyle = style.id"
+                 class="text-center"
+                 style="cursor:pointer;padding:8px;border-radius:12px;border:2px solid;transition:all .2s;width:80px;"
+                 [style.border-color]="selectedStyle === style.id ? 'var(--primary)' : 'var(--border)'"
+                 [style.background]="selectedStyle === style.id ? 'var(--primary-light)' : '#fff'">
+              <img [src]="getPreviewUrl(style.id)" [alt]="style.label" style="width:48px;height:48px;border-radius:50%;"/>
+              <div style="font-size:11px;margin-top:4px;color:var(--text-muted);">{{ style.label }}</div>
+            </div>
+          }
+        </div>
+        <button class="btn btn-primary" (click)="saveAvatar()" [disabled]="savingAvatar">
+          @if (savingAvatar) {
+            <span class="spinner-border spinner-border-sm me-2"></span>Saving...
+          } @else {
+            Save Avatar
+          }
+        </button>
+      </div>
+    }
+
+    <!-- Username Tab -->
+    @if (activeTab === 'name') {
+      <div class="card p-4">
+        <h6 class="fw-semibold mb-3">Change Display Name</h6>
+        <div class="mb-3">
+          <label class="form-label">New Name</label>
+          <input type="text" class="form-control" [(ngModel)]="newName" placeholder="Enter your name" [disabled]="savingName"/>
+        </div>
+        <button class="btn btn-primary" (click)="saveName()" [disabled]="savingName || !newName.trim()">
+          @if (savingName) {
+            <span class="spinner-border spinner-border-sm me-2"></span>Saving...
+          } @else {
+            Save Name
+          }
+        </button>
+      </div>
+    }
+
+    <!-- Password Tab -->
+    @if (activeTab === 'password') {
+      <div class="card p-4">
+        <h6 class="fw-semibold mb-3">Change Password</h6>
+        <div class="mb-3">
+          <label class="form-label">Current Password</label>
+          <input type="password" class="form-control" [(ngModel)]="currentPassword" placeholder="••••••••" [disabled]="savingPassword"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">New Password</label>
+          <input type="password" class="form-control" [(ngModel)]="newPassword" placeholder="Min. 6 characters" [disabled]="savingPassword"/>
+        </div>
+        <div class="mb-4">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" class="form-control" [(ngModel)]="confirmNewPassword" placeholder="••••••••" [disabled]="savingPassword"/>
+        </div>
+        <button class="btn btn-primary" (click)="savePassword()" [disabled]="savingPassword">
+          @if (savingPassword) {
+            <span class="spinner-border spinner-border-sm me-2"></span>Saving...
+          } @else {
+            Change Password
+          }
+        </button>
+      </div>
+    }
+
+    <!-- Delete Account Tab -->
+    @if (activeTab === 'delete') {
+      <div class="card p-4" style="border:1px solid var(--expense-border)!important;">
+        <h6 class="fw-semibold text-danger mb-1">Delete Your Account</h6>
+        <p class="text-muted small mb-3">
+          This action is <strong>permanent and cannot be undone.</strong>
+          All your expenses, budgets, categories, and profile data will be deleted.
+        </p>
+        <div class="mb-3">
+          <label class="form-label">Type <strong>DELETE</strong> to confirm</label>
+          <input type="text" class="form-control"
+                 [(ngModel)]="deleteAccountInput"
+                 placeholder="DELETE"
+                 [disabled]="deletingAccount" />
+        </div>
+        <button class="btn btn-danger"
+                (click)="deleteAccount()"
+                [disabled]="deleteAccountInput !== 'DELETE' || deletingAccount">
+          @if (deletingAccount) {
+            <span class="spinner-border spinner-border-sm me-2"></span>Deleting...
+          } @else {
+            Delete My Account
+          }
+        </button>
+      </div>
+    }
+
+  }
+</div>
+
+<style>
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}
+</style>

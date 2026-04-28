@@ -32,6 +32,10 @@ def login():
     if user is None:
         return make_response(jsonify({'message': 'Invalid credentials'}), 401)
 
+    # Check if banned
+    if blacklist.find_one({'type': 'banned_email', 'email': user.get('email', '')}):
+        return make_response(jsonify({'message': 'This account has been suspended'}), 403)
+
     # Check password — support both field names
     stored = user.get('password_hash') or user.get('password', '')
     input_pw = data.get('password', '')
@@ -193,6 +197,12 @@ def auth0_exchange():
     if user is None and email:
         user = auth_users.find_one({'email': email})
 
+    # Check if banned
+    if user and blacklist.find_one({'type': 'banned_email', 'email': user.get('email', email)}):
+        return make_response(jsonify({'message': 'This account has been suspended'}), 403)
+    if not user and blacklist.find_one({'type': 'banned_email', 'email': email}):
+        return make_response(jsonify({'message': 'This account has been suspended'}), 403)
+
     if user is None:
         # First-time Auth0 user — provision account
         all_finance = list(finance_users.find({}, {'user_id': 1}))
@@ -284,6 +294,85 @@ def update_avatar():
         {'$set': {'avatar_style': data['avatar_style']}}
     )
     return make_response(jsonify({'message': 'Avatar updated'}), 200)
+
+
+@auth_bp.route('/profile/name', methods=['PUT'])
+def update_name():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return make_response(jsonify({'message': 'Token required'}), 401)
+    try:
+        data_token = jwt.decode(token, globals.SECRET_KEY, algorithms=['HS256'])
+        user_id = data_token.get('user_id')
+    except:
+        return make_response(jsonify({'message': 'Invalid token'}), 401)
+
+    data = request.get_json()
+    if not data or 'name' not in data:
+        return make_response(jsonify({'message': 'name required'}), 400)
+
+    new_name = data['name'].strip()
+    if not new_name:
+        return make_response(jsonify({'message': 'Name cannot be empty'}), 400)
+
+    auth_users.update_one({'_id': ObjectId(user_id)}, {'$set': {'name': new_name}})
+    return make_response(jsonify({'message': 'Name updated', 'name': new_name}), 200)
+
+
+@auth_bp.route('/profile/password', methods=['PUT'])
+def update_password():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return make_response(jsonify({'message': 'Token required'}), 401)
+    try:
+        data_token = jwt.decode(token, globals.SECRET_KEY, algorithms=['HS256'])
+        user_id = data_token.get('user_id')
+    except:
+        return make_response(jsonify({'message': 'Invalid token'}), 401)
+
+    data = request.get_json()
+    if not data or 'current_password' not in data or 'new_password' not in data:
+        return make_response(jsonify({'message': 'current_password and new_password required'}), 400)
+
+    user = auth_users.find_one({'_id': ObjectId(user_id)})
+    if not user:
+        return make_response(jsonify({'message': 'User not found'}), 404)
+
+    stored = user.get('password_hash') or user.get('password', '')
+    if not stored:
+        return make_response(jsonify({'message': 'This account uses Auth0. Password cannot be changed here.'}), 400)
+
+    if not bcrypt.checkpw(data['current_password'].encode('utf-8'), stored.encode('utf-8')):
+        return make_response(jsonify({'message': 'Current password is incorrect'}), 401)
+
+    if len(data['new_password']) < 6:
+        return make_response(jsonify({'message': 'Password must be at least 6 characters'}), 400)
+
+    new_hash = bcrypt.hashpw(data['new_password'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    auth_users.update_one({'_id': ObjectId(user_id)}, {'$set': {'password_hash': new_hash}})
+    return make_response(jsonify({'message': 'Password updated'}), 200)
+
+
+@auth_bp.route('/profile', methods=['DELETE'])
+def delete_account():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return make_response(jsonify({'message': 'Token required'}), 401)
+    try:
+        data_token = jwt.decode(token, globals.SECRET_KEY, algorithms=['HS256'])
+        user_id = data_token.get('user_id')
+        finance_id = data_token.get('finance_id')
+    except:
+        return make_response(jsonify({'message': 'Invalid token'}), 401)
+
+    auth_users.delete_one({'_id': ObjectId(user_id)})
+    if finance_id:
+        try:
+            finance_users.delete_one({'_id': ObjectId(finance_id)})
+        except Exception:
+            pass
+
+    return make_response(jsonify({'message': 'Account deleted'}), 200)
 
 
 @auth_bp.route('/profile', methods=['GET'])

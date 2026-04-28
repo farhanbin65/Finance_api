@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { FinanceService } from '../services/finance.service';
 import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
 
 @Component({
   selector: 'app-expenses',
@@ -27,10 +28,15 @@ export class ExpensesComponent implements OnInit {
   totalPages = 1;
 
   isAdmin = false;
+  isLoading = true;
+  deletingId: number | null = null;
+  deleteConfirmId: number | null = null;
+  deleteConfirmInput = '';
 
   constructor(
     private financeService: FinanceService,
-    private authService: AuthService
+    private authService: AuthService,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -44,30 +50,45 @@ export class ExpensesComponent implements OnInit {
   }
 
   loadAdminExpenses(): void {
-    this.financeService.getAdminExpenses().subscribe(expenses => {
-      this.allExpenses = expenses;
-      // Build unique category list from enriched category_name field
-      const seen = new Set<string>();
-      this.categories = [];
-      expenses.forEach(e => {
-        if (e.category_name && !seen.has(e.category_name)) {
-          seen.add(e.category_name);
-          this.categories.push({ category_id: e.category_name, name: e.category_name });
-        }
-      });
-      this.applyFilters();
+    this.isLoading = true;
+    this.financeService.getAdminExpenses().subscribe({
+      next: (expenses) => {
+        this.allExpenses = expenses;
+        const seen = new Set<string>();
+        this.categories = [];
+        expenses.forEach(e => {
+          if (e.category_name && !seen.has(e.category_name)) {
+            seen.add(e.category_name);
+            this.categories.push({ category_id: e.category_name, name: e.category_name });
+          }
+        });
+        this.applyFilters();
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.toast.error('Failed to load expenses');
+      }
     });
   }
 
   loadUserExpenses(): void {
+    this.isLoading = true;
     this.financeService.getCurrentUser().subscribe(user => {
       if (!user) return;
       this.categories = this.financeService.getMergedCategories(user.categories || []);
     });
 
-    this.financeService.getExpenses(1, 500).subscribe(expenses => {
-      this.allExpenses = expenses;
-      this.applyFilters();
+    this.financeService.getExpenses(1, 500).subscribe({
+      next: (expenses) => {
+        this.allExpenses = expenses;
+        this.applyFilters();
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.toast.error('Failed to load expenses');
+      }
     });
   }
 
@@ -115,26 +136,55 @@ export class ExpensesComponent implements OnInit {
     return Array.from({ length: this.totalPages }, (_, i) => i + 1);
   }
 
+  get visiblePages(): (number | null)[] {
+    const total = this.totalPages;
+    const cur = this.currentPage;
+    if (total <= 7) return this.pageNumbers;
+    const pages: (number | null)[] = [1];
+    if (cur > 3) pages.push(null);
+    for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) {
+      pages.push(i);
+    }
+    if (cur < total - 2) pages.push(null);
+    pages.push(total);
+    return pages;
+  }
+
   getCategoryName(expense: any): string {
     if (this.isAdmin) return expense.category_name || 'Unknown';
     const cat = this.categories.find(c => c.category_id === expense.category_id);
     return cat ? cat.name : 'Unknown';
   }
 
+  confirmDelete(id: number): void {
+    this.deleteConfirmId = id;
+    this.deleteConfirmInput = '';
+  }
+
+  cancelDelete(): void {
+    this.deleteConfirmId = null;
+    this.deleteConfirmInput = '';
+  }
+
   deleteExpense(expense: any): void {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
-    // For admin, we need the finance_id (user's mongo ID) to delete from correct user
+    if (this.deleteConfirmInput !== 'DELETE') return;
     if (this.isAdmin) {
-      // Admin delete not supported from this view — expenses belong to individual users
-      alert('To delete an expense, go to that user\'s account.');
+      this.toast.info('To delete an expense, go to that user\'s account.');
       return;
     }
+    this.deletingId = expense.expense_id;
+    this.deleteConfirmId = null;
     this.financeService.deleteExpense(expense.expense_id).subscribe({
       next: () => {
+        this.deletingId = null;
         this.allExpenses = this.allExpenses.filter(e => e.expense_id !== expense.expense_id);
         this.applyFilters();
+        this.toast.success('Expense deleted');
       },
-      error: (err) => console.error('Delete failed', err)
+      error: () => {
+        this.deletingId = null;
+        this.toast.error('Failed to delete expense');
+      }
     });
   }
 

@@ -49,8 +49,25 @@ export class AuthService {
     );
   }
 
+  updateName(name: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/profile/name`, { name }).pipe(
+      tap(() => localStorage.setItem('name', name))
+    );
+  }
+
+  updatePassword(currentPassword: string, newPassword: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/profile/password`, {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+  }
+
   getProfile(): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/profile`);
+  }
+
+  deleteAccount(): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/profile`);
   }
 
   getToken(): string | null { return localStorage.getItem('token'); }

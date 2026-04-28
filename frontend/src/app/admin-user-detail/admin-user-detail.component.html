@@ -11,12 +11,51 @@
   @if (!loading && user) {
 
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
       <div>
         <h3 class="mb-0">👤 {{ user.name }}</h3>
         <small class="text-muted">{{ user.email }} · Joined {{ user.created_at }}</small>
       </div>
-      <a routerLink="/" class="btn btn-outline-secondary">← Back to Dashboard</a>
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+
+        <!-- Confirm states -->
+        @if (showDeleteConfirm) {
+          <div class="d-flex flex-column gap-1" style="min-width:220px;">
+            <div class="small text-danger">Type <strong>DELETE</strong> to confirm:</div>
+            <input type="text" class="form-control form-control-sm"
+                   placeholder="DELETE" [(ngModel)]="deleteInput" />
+            <div class="d-flex gap-1">
+              <button class="btn btn-sm btn-danger flex-grow-1"
+                      [disabled]="deleteInput !== 'DELETE' || deleting"
+                      (click)="deleteUser()">
+                @if (deleting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Confirm Delete
+              </button>
+              <button class="btn btn-sm btn-secondary" (click)="cancelConfirm()">Cancel</button>
+            </div>
+          </div>
+        } @else if (showBanConfirm) {
+          <div class="d-flex flex-column gap-1" style="min-width:220px;">
+            <div class="small text-warning">Type <strong>BAN</strong> to confirm:</div>
+            <input type="text" class="form-control form-control-sm"
+                   placeholder="BAN" [(ngModel)]="banInput" />
+            <div class="d-flex gap-1">
+              <button class="btn btn-sm btn-warning flex-grow-1"
+                      [disabled]="banInput !== 'BAN' || banning"
+                      (click)="banUser()">
+                @if (banning) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                Confirm Ban
+              </button>
+              <button class="btn btn-sm btn-secondary" (click)="cancelConfirm()">Cancel</button>
+            </div>
+          </div>
+        } @else {
+          <button class="btn btn-warning btn-sm" (click)="openBanConfirm()">🚫 Ban User</button>
+          <button class="btn btn-danger btn-sm" (click)="openDeleteConfirm()">🗑️ Delete User</button>
+        }
+
+        <a routerLink="/admin" class="btn btn-outline-secondary btn-sm">← Back to Dashboard</a>
+      </div>
     </div>
 
     <!-- Summary pills -->
@@ -97,10 +136,14 @@
               <li class="page-item" [class.disabled]="currentPage === 1">
                 <button class="page-link" (click)="goToPage(currentPage - 1)">‹</button>
               </li>
-              @for (page of pageNumbers; track page) {
-                <li class="page-item" [class.active]="page === currentPage">
-                  <button class="page-link" (click)="goToPage(page)">{{ page }}</button>
-                </li>
+              @for (page of visiblePages; track $index) {
+                @if (page === null) {
+                  <li class="page-item disabled"><span class="page-link">…</span></li>
+                } @else {
+                  <li class="page-item" [class.active]="page === currentPage">
+                    <button class="page-link" (click)="goToPage(page)">{{ page }}</button>
+                  </li>
+                }
               }
               <li class="page-item" [class.disabled]="currentPage === totalPages">
                 <button class="page-link" (click)="goToPage(currentPage + 1)">›</button>

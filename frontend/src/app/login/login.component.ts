@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { AuthService as Auth0Service } from '@auth0/auth0-angular';
+import { ToastService } from '../services/toast.service';
 import { filter, switchMap, take } from 'rxjs/operators';
 import { EMPTY } from 'rxjs';
 
@@ -23,7 +24,8 @@ export class LoginComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private auth0: Auth0Service,
-    private router: Router
+    private router: Router,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -51,6 +53,7 @@ export class LoginComponent implements OnInit {
     ).subscribe({
       next: () => {
         this.isLoading = false;
+        this.toast.success(`Welcome back, ${this.authService.getName()}!`);
         this.router.navigate(['/']);
       },
       error: (err) => {
@@ -72,6 +75,7 @@ export class LoginComponent implements OnInit {
     this.authService.login(this.email, this.password).subscribe({
       next: () => {
         this.isLoading = false;
+        this.toast.success(`Welcome back, ${this.authService.getName()}!`);
         this.router.navigate(['/']);
       },
       error: (err) => {

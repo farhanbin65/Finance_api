@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { ToastService } from '../services/toast.service';
 
 @Component({
   selector: 'app-admin',
@@ -19,18 +20,27 @@ export class AdminComponent implements OnInit {
   isAdmin = false;
   searchTerm = '';
 
+  // Delete confirmation
+  deleteConfirmId: string | null = null;
+  deleteConfirmInput = '';
+
+  // Ban confirmation
+  banConfirmId: string | null = null;
+  banConfirmInput = '';
+  banning = false;
+
+  private readonly apiBase = 'http://127.0.0.1:5001';
+
   constructor(
     private http: HttpClient,
     public authService: AuthService,
-    private router: Router
+    private router: Router,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
     const adminValue = localStorage.getItem('admin');
-    console.log('Admin value:', adminValue, typeof adminValue);
     this.isAdmin = adminValue === 'true';
-    console.log('isAdmin:', this.isAdmin);
-    
     if (!this.isAdmin) {
       this.router.navigate(['/']);
       return;
@@ -39,14 +49,15 @@ export class AdminComponent implements OnInit {
   }
 
   loadUsers(): void {
-    this.http.get<any[]>('http://127.0.0.1:5001/users?ps=200').subscribe({
+    this.http.get<any[]>(`${this.apiBase}/users?ps=200`).subscribe({
       next: users => this.users = users,
-      error: err => console.error('Failed to load users', err)
+      error: () => this.toast.error('Failed to load users')
     });
   }
 
   selectUser(user: any): void {
     this.selectedUser = user;
+    this.cancelConfirm();
   }
 
   getTotalExpenses(user: any): number {
@@ -86,14 +97,55 @@ export class AdminComponent implements OnInit {
     );
   }
 
+  confirmDeleteUser(userId: string): void {
+    this.deleteConfirmId = userId;
+    this.deleteConfirmInput = '';
+    this.banConfirmId = null;
+    this.banConfirmInput = '';
+  }
+
+  confirmBanUser(userId: string): void {
+    this.banConfirmId = userId;
+    this.banConfirmInput = '';
+    this.deleteConfirmId = null;
+    this.deleteConfirmInput = '';
+  }
+
+  cancelConfirm(): void {
+    this.deleteConfirmId = null;
+    this.deleteConfirmInput = '';
+    this.banConfirmId = null;
+    this.banConfirmInput = '';
+  }
+
   deleteUser(userId: string): void {
-    if (!confirm('Are you sure you want to delete this user?')) return;
-    this.http.delete(`http://127.0.0.1:5001/users/${userId}`).subscribe({
+    if (this.deleteConfirmInput !== 'DELETE') return;
+    this.http.delete(`${this.apiBase}/admin/users/${userId}`).subscribe({
       next: () => {
         this.users = this.users.filter(u => u._id !== userId);
         if (this.selectedUser?._id === userId) this.selectedUser = null;
+        this.cancelConfirm();
+        this.toast.success('User deleted successfully');
       },
-      error: err => console.error('Delete failed', err)
+      error: () => this.toast.error('Failed to delete user')
+    });
+  }
+
+  banUser(userId: string): void {
+    if (this.banConfirmInput !== 'BAN') return;
+    this.banning = true;
+    this.http.post(`${this.apiBase}/admin/ban/${userId}`, {}).subscribe({
+      next: () => {
+        this.banning = false;
+        this.users = this.users.filter(u => u._id !== userId);
+        if (this.selectedUser?._id === userId) this.selectedUser = null;
+        this.cancelConfirm();
+        this.toast.warning('User has been banned');
+      },
+      error: () => {
+        this.banning = false;
+        this.toast.error('Failed to ban user');
+      }
     });
   }
 }

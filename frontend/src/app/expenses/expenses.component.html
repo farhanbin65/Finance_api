@@ -16,13 +16,8 @@
     <div class="card-body">
       <div class="row g-2">
         <div class="col-md-4">
-          <input
-            type="text"
-            class="form-control"
-            placeholder="🔍 Search by merchant..."
-            [(ngModel)]="searchTerm"
-            (ngModelChange)="applyFilters()"
-          />
+          <input type="text" class="form-control" placeholder="🔍 Search by merchant..."
+                 [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" />
         </div>
         <div class="col-md-3">
           <select class="form-select" [(ngModel)]="selectedCategory" (ngModelChange)="applyFilters()">
@@ -46,67 +41,128 @@
     </div>
   </div>
 
-  <!-- Expense Cards -->
-  <div class="row g-3 mb-4">
-    @for (expense of paginatedExpenses; track expense.expense_id) {
-      <div class="col-md-6 col-lg-4">
-        <div class="card border-0 shadow-sm h-100 expense-card">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <h5 class="card-title mb-0">{{ expense.merchant }}</h5>
-              <span class="badge bg-primary">{{ getCategoryName(expense) }}</span>
-            </div>
-            @if (isAdmin) {
-              <p class="text-muted small mb-1">
-                👤 <span class="badge bg-info text-dark">{{ expense.user_name }}</span>
-              </p>
-            }
-            <h4 class="text-danger fw-bold">£{{ expense.amount.toFixed(2) }}</h4>
-            <p class="text-muted mb-1">📅 {{ expense.date }}</p>
-            <p class="text-muted mb-2">
-              💳 <span class="badge bg-secondary">{{ expense.payment_method }}</span>
-            </p>
-            @if (expense.note) {
-              <p class="text-muted small fst-italic">{{ expense.note }}</p>
-            }
-          </div>
-          <div class="card-footer bg-transparent border-0 d-flex gap-2">
-            @if (!isAdmin) {
-              <a [routerLink]="['/expenses/edit', expense.expense_id]"
-                 class="btn btn-outline-primary btn-sm w-50">✏️ Edit</a>
-              <button class="btn btn-outline-danger btn-sm w-50"
-                      (click)="deleteExpense(expense)">🗑️ Delete</button>
-            }
+  <!-- Skeleton loader -->
+  @if (isLoading) {
+    <div class="row g-3 mb-4">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <div class="col-md-6 col-lg-4">
+          <div class="card border-0 shadow-sm p-3" style="animation:pulse 1.5s infinite;">
+            <div style="height:16px;background:#e2e8f0;border-radius:6px;width:60%;margin-bottom:10px;"></div>
+            <div style="height:28px;background:#e2e8f0;border-radius:6px;width:40%;margin-bottom:10px;"></div>
+            <div style="height:12px;background:#e2e8f0;border-radius:6px;width:80%;margin-bottom:8px;"></div>
+            <div style="height:12px;background:#e2e8f0;border-radius:6px;width:50%;"></div>
           </div>
         </div>
-      </div>
-    }
+      }
+    </div>
+  }
 
-    @if (paginatedExpenses.length === 0) {
-      <div class="col-12 text-center py-5 text-muted">
-        <h5>No expenses found</h5>
-        <p>Try adjusting your search or filters</p>
-      </div>
-    }
-  </div>
+  <!-- Expense Cards -->
+  @if (!isLoading) {
+    <div class="row g-3 mb-4">
+      @for (expense of paginatedExpenses; track expense.expense_id) {
+        <div class="col-md-6 col-lg-4">
+          <div class="card border-0 shadow-sm h-100 expense-card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h5 class="card-title mb-0">{{ expense.merchant }}</h5>
+                <span class="badge bg-primary">{{ getCategoryName(expense) }}</span>
+              </div>
+              @if (isAdmin) {
+                <p class="text-muted small mb-1">
+                  👤 <span class="badge bg-info text-dark">{{ expense.user_name }}</span>
+                </p>
+              }
+              <h4 class="text-danger fw-bold">£{{ expense.amount.toFixed(2) }}</h4>
+              <p class="text-muted mb-1">📅 {{ expense.date }}</p>
+              <p class="text-muted mb-2">
+                💳 <span class="badge bg-secondary">{{ expense.payment_method }}</span>
+              </p>
+              @if (expense.note) {
+                <p class="text-muted small fst-italic">{{ expense.note }}</p>
+              }
+            </div>
+            <div class="card-footer bg-transparent border-0">
+              @if (!isAdmin) {
+                @if (deleteConfirmId === expense.expense_id) {
+                  <div>
+                    <div class="small text-danger mb-1">Type <strong>DELETE</strong> to confirm:</div>
+                    <input type="text" class="form-control form-control-sm mb-2"
+                           placeholder="DELETE"
+                           [(ngModel)]="deleteConfirmInput" />
+                    <div class="d-flex gap-1">
+                      <button class="btn btn-danger btn-sm flex-grow-1"
+                              [disabled]="deleteConfirmInput !== 'DELETE' || deletingId === expense.expense_id"
+                              (click)="deleteExpense(expense)">
+                        @if (deletingId === expense.expense_id) {
+                          <span class="spinner-border spinner-border-sm"></span>
+                        } @else {
+                          Confirm Delete
+                        }
+                      </button>
+                      <button class="btn btn-secondary btn-sm" (click)="cancelDelete()">Cancel</button>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="d-flex gap-2">
+                    <a [routerLink]="['/expenses/edit', expense.expense_id]"
+                       class="btn btn-outline-primary btn-sm w-50">✏️ Edit</a>
+                    <button class="btn btn-outline-danger btn-sm w-50"
+                            (click)="confirmDelete(expense.expense_id)">
+                      🗑️ Delete
+                    </button>
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+      }
 
-  <!-- Pagination -->
-  @if (totalPages > 1) {
-    <nav class="d-flex justify-content-center">
-      <ul class="pagination">
-        <li class="page-item" [class.disabled]="currentPage === 1">
-          <button class="page-link" (click)="goToPage(currentPage - 1)">‹ Prev</button>
-        </li>
-        @for (page of pageNumbers; track page) {
-          <li class="page-item" [class.active]="page === currentPage">
-            <button class="page-link" (click)="goToPage(page)">{{ page }}</button>
+      @if (paginatedExpenses.length === 0) {
+        <div class="col-12 text-center py-5 text-muted">
+          @if (allExpenses.length === 0 && !isAdmin) {
+            <div style="font-size:2.5rem;margin-bottom:8px;">💸</div>
+            <h5>No expenses yet</h5>
+            <p class="mb-3">You haven't added anything yet — get started now!</p>
+            <a routerLink="/expenses/add" class="btn btn-primary">+ Add First Expense</a>
+          } @else {
+            <h5>No results found</h5>
+            <p>Try adjusting your search or filters</p>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages > 1) {
+      <nav class="d-flex justify-content-center">
+        <ul class="pagination">
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button class="page-link" (click)="goToPage(currentPage - 1)">‹ Prev</button>
           </li>
-        }
-        <li class="page-item" [class.disabled]="currentPage === totalPages">
-          <button class="page-link" (click)="goToPage(currentPage + 1)">Next ›</button>
-        </li>
-      </ul>
-    </nav>
+          @for (page of visiblePages; track $index) {
+            @if (page === null) {
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+            } @else {
+              <li class="page-item" [class.active]="page === currentPage">
+                <button class="page-link" (click)="goToPage(page)">{{ page }}</button>
+              </li>
+            }
+          }
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button class="page-link" (click)="goToPage(currentPage + 1)">Next ›</button>
+          </li>
+        </ul>
+      </nav>
+    }
   }
 
 </div>
+
+<style>
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}
+</style>

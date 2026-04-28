@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
 
 @Component({
   selector: 'app-register',
@@ -30,7 +31,7 @@ export class RegisterComponent {
     { id: 'micah',        label: 'Sketch'    },
   ];
 
-  constructor(private authService: AuthService, private router: Router) {}
+  constructor(private authService: AuthService, private router: Router, private toast: ToastService) {}
 
   getPreviewUrl(style: string): string {
     return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(this.name || 'preview')}`;
@@ -60,7 +61,7 @@ export class RegisterComponent {
     this.authService.register(this.name, this.email, this.password, this.selectedStyle).subscribe({
       next: () => {
         this.isLoading = false;
-        this.successMessage = 'Account created! Redirecting to login...';
+        this.toast.success('Account created! Redirecting to login...');
         setTimeout(() => this.router.navigate(['/login']), 1500);
       },
       error: (err) => {

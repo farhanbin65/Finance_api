@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FinanceService } from '../services/finance.service';
+import { ToastService } from '../services/toast.service';
 
 @Component({
   selector: 'app-categories',
@@ -15,9 +16,10 @@ export class CategoriesComponent implements OnInit {
   categories: any[] = [];
   showModal = false;
   saving = false;
+  deleting = false;
   deleteConfirmId: number | null = null;
-  successMessage = '';
-  errorMessage = '';
+  deleteConfirmInput = '';
+  isLoading = true;
 
   form = { name: '', type: 'expense' };
 
@@ -25,7 +27,8 @@ export class CategoriesComponent implements OnInit {
 
   constructor(
     private financeService: FinanceService,
-    private http: HttpClient
+    private http: HttpClient,
+    private toast: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -33,9 +36,17 @@ export class CategoriesComponent implements OnInit {
   }
 
   loadData(): void {
-    this.financeService.getCurrentUser().subscribe(user => {
-      if (!user) return;
-      this.categories = user.categories || [];
+    this.isLoading = true;
+    this.financeService.getCurrentUser().subscribe({
+      next: (user) => {
+        if (!user) return;
+        this.categories = user.categories || [];
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.toast.error('Failed to load categories');
+      }
     });
   }
 
@@ -51,16 +62,14 @@ export class CategoriesComponent implements OnInit {
 
   openAddModal(): void {
     this.form = { name: '', type: 'expense' };
-    this.clearMessages();
     this.showModal = true;
   }
 
   closeModal(): void { this.showModal = false; }
-  clearMessages(): void { this.successMessage = ''; this.errorMessage = ''; }
 
   saveCategory(): void {
     if (!this.form.name.trim()) {
-      this.errorMessage = 'Category name is required.';
+      this.toast.error('Category name is required');
       return;
     }
 
@@ -77,32 +86,43 @@ export class CategoriesComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.showModal = false;
-        this.successMessage = `Category "${this.form.name}" added.`;
+        this.toast.success(`Category "${this.form.name}" added`);
         this.loadData();
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err.error?.Error || 'Failed to add category.';
+        this.toast.error(err.error?.Error || 'Failed to add category');
       }
     });
   }
 
-  confirmDelete(id: number): void { this.deleteConfirmId = id; }
-  cancelDelete(): void            { this.deleteConfirmId = null; }
+  confirmDelete(id: number): void {
+    this.deleteConfirmId = id;
+    this.deleteConfirmInput = '';
+  }
+
+  cancelDelete(): void {
+    this.deleteConfirmId = null;
+    this.deleteConfirmInput = '';
+  }
 
   deleteCategory(id: number): void {
+    if (this.deleteConfirmInput !== 'DELETE') return;
+    this.deleting = true;
     this.http.delete(
       `${this.apiBase}/users/${this.getUserId()}/categories/${id}`,
       { headers: this.getHeaders() }
     ).subscribe({
       next: () => {
+        this.deleting = false;
         this.deleteConfirmId = null;
-        this.successMessage = 'Category deleted.';
+        this.toast.success('Category deleted');
         this.loadData();
       },
       error: (err) => {
+        this.deleting = false;
         this.deleteConfirmId = null;
-        this.errorMessage = err.error?.Error || 'Failed to delete category.';
+        this.toast.error(err.error?.Error || 'Failed to delete category');
       }
     });
   }

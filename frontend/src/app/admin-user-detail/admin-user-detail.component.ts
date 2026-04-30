@@ -1,10 +1,20 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { PLATFORM_ID, Inject } from '@angular/core';
 import { FinanceService } from '../services/finance.service';
 import { ToastService } from '../services/toast.service';
+import { Chart, registerables } from 'chart.js';
+
+Chart.register(...registerables);
+
+const CHART_COLORS = [
+  '#4F46E5','#059669','#DC2626','#D97706','#0891B2',
+  '#7C3AED','#DB2777','#0D9488','#EA580C','#2563EB',
+  '#16A34A','#9333EA','#F59E0B','#EF4444','#06B6D4'
+];
 
 @Component({
   selector: 'app-admin-user-detail',
@@ -12,7 +22,9 @@ import { ToastService } from '../services/toast.service';
   templateUrl: './admin-user-detail.component.html',
   styleUrl: './admin-user-detail.component.css'
 })
-export class AdminUserDetailComponent implements OnInit {
+export class AdminUserDetailComponent implements OnInit, AfterViewInit {
+
+  @ViewChild('spendingChart') chartRef?: ElementRef;
 
   user: any = null;
   loading = true;
@@ -32,6 +44,11 @@ export class AdminUserDetailComponent implements OnInit {
   // Budgets
   enrichedBudgets: any[] = [];
 
+  // Chart
+  chartData: { label: string; amount: number; percent: number }[] = [];
+  private chartInstance: Chart | null = null;
+  chartReady = false;
+
   // Delete / Ban confirmation
   showDeleteConfirm = false;
   deleteInput = '';
@@ -48,7 +65,8 @@ export class AdminUserDetailComponent implements OnInit {
     private router: Router,
     private http: HttpClient,
     private financeService: FinanceService,
-    private toast: ToastService
+    private toast: ToastService,
+    @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
   ngOnInit(): void {
@@ -64,6 +82,53 @@ export class AdminUserDetailComponent implements OnInit {
     });
   }
 
+  ngAfterViewInit(): void {}
+
+  // ── Analytics getters ────────────────────────────────────────────────────
+
+  get totalExpensesAmount(): number {
+    return this.allExpenses
+      .filter(e => e.category_type === 'expense')
+      .reduce((s, e) => s + e.amount, 0);
+  }
+
+  get totalIncomeAmount(): number {
+    return this.allExpenses
+      .filter(e => e.category_type === 'income')
+      .reduce((s, e) => s + e.amount, 0);
+  }
+
+  get balanceAmount(): number {
+    return this.totalIncomeAmount - this.totalExpensesAmount;
+  }
+
+  get biggestExpense(): any {
+    const expenses = this.allExpenses.filter(e => e.category_type === 'expense');
+    return expenses.reduce((max: any, e: any) => e.amount > (max?.amount || 0) ? e : max, null);
+  }
+
+  get topCategoryName(): string {
+    return this.chartData.length > 0 ? this.chartData[0].label : '—';
+  }
+
+  get cardPercent(): number {
+    const total = this.allExpenses.length;
+    if (!total) return 0;
+    const cards = this.allExpenses.filter(e => e.payment_method === 'card').length;
+    return +((cards / total) * 100).toFixed(0);
+  }
+
+  get cashPercent(): number {
+    return 100 - this.cardPercent;
+  }
+
+  get avgExpenseAmount(): number {
+    const expenses = this.allExpenses.filter(e => e.category_type === 'expense');
+    return expenses.length > 0 ? expenses.reduce((s, e) => s + e.amount, 0) / expenses.length : 0;
+  }
+
+  // ── Data preparation ─────────────────────────────────────────────────────
+
   prepareExpenses(): void {
     const categories: any[] = this.user.categories || [];
     const catMap: { [id: number]: any } = {};
@@ -76,6 +141,7 @@ export class AdminUserDetailComponent implements OnInit {
     }));
 
     this.applyFilters();
+    this.buildChart();
   }
 
   prepareBudgets(): void {
@@ -94,6 +160,69 @@ export class AdminUserDetailComponent implements OnInit {
       };
     }).sort((a: any, b: any) => b.month.localeCompare(a.month));
   }
+
+  // ── Chart ────────────────────────────────────────────────────────────────
+
+  buildChart(): void {
+    const expenseOnly = this.allExpenses.filter(e => e.category_type === 'expense');
+    const grouped: { [key: string]: number } = {};
+    expenseOnly.forEach(e => {
+      grouped[e.category_name] = (grouped[e.category_name] || 0) + e.amount;
+    });
+    const total = Object.values(grouped).reduce((s, v) => s + v, 0);
+    this.chartData = Object.entries(grouped)
+      .map(([label, amount]) => ({
+        label,
+        amount,
+        percent: total > 0 ? +((amount / total) * 100).toFixed(1) : 0
+      }))
+      .sort((a, b) => b.amount - a.amount);
+    this.chartReady = true;
+    setTimeout(() => this.renderChart(), 100);
+  }
+
+  renderChart(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    if (!this.chartRef) return;
+
+    if (this.chartInstance) {
+      this.chartInstance.destroy();
+      this.chartInstance = null;
+    }
+
+    const total = this.chartData.reduce((s, d) => s + d.amount, 0);
+
+    this.chartInstance = new Chart(this.chartRef.nativeElement, {
+      type: 'doughnut',
+      data: {
+        labels: this.chartData.map(d =>
+          `${d.label} (${total > 0 ? ((d.amount / total) * 100).toFixed(1) : 0}%)`
+        ),
+        datasets: [{
+          data: this.chartData.map(d => d.amount),
+          backgroundColor: CHART_COLORS.slice(0, this.chartData.length),
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const val = ctx.parsed as number;
+                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0';
+                return ` £${val.toFixed(2)} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // ── Filters & pagination ─────────────────────────────────────────────────
 
   get categories(): any[] {
     const seen = new Set<string>();
@@ -167,6 +296,8 @@ export class AdminUserDetailComponent implements OnInit {
     this.selectedPayment = '';
     this.applyFilters();
   }
+
+  // ── User actions ─────────────────────────────────────────────────────────
 
   openDeleteConfirm(): void {
     this.showDeleteConfirm = true;

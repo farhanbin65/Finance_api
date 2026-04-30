@@ -18,7 +18,6 @@
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap">
 
-        <!-- Confirm states -->
         @if (showDeleteConfirm) {
           <div class="d-flex flex-column gap-1" style="min-width:220px;">
             <div class="small text-danger">Type <strong>DELETE</strong> to confirm:</div>
@@ -59,10 +58,86 @@
     </div>
 
     <!-- Summary pills -->
-    <div class="d-flex gap-3 mb-4">
-      <span class="badge bg-secondary fs-6">{{ allExpenses.length }} Expenses</span>
+    <div class="d-flex gap-3 mb-4 flex-wrap">
+      <span class="badge bg-secondary fs-6">{{ allExpenses.length }} Transactions</span>
       <span class="badge bg-secondary fs-6">{{ enrichedBudgets.length }} Budgets</span>
       <span class="badge bg-secondary fs-6">{{ user.categories?.length || 0 }} Categories</span>
+    </div>
+
+    <!-- ── ANALYTICS CARDS ── -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-2 col-6">
+        <div class="card border-0 shadow-sm text-center p-3 h-100">
+          <small class="text-muted mb-1">Total Income</small>
+          <strong class="d-block text-success fs-6">£{{ totalIncomeAmount.toFixed(2) }}</strong>
+        </div>
+      </div>
+      <div class="col-md-2 col-6">
+        <div class="card border-0 shadow-sm text-center p-3 h-100">
+          <small class="text-muted mb-1">Total Spent</small>
+          <strong class="d-block text-danger fs-6">£{{ totalExpensesAmount.toFixed(2) }}</strong>
+        </div>
+      </div>
+      <div class="col-md-2 col-6">
+        <div class="card border-0 shadow-sm text-center p-3 h-100">
+          <small class="text-muted mb-1">Balance</small>
+          <strong class="d-block fs-6"
+                  [class.text-success]="balanceAmount >= 0"
+                  [class.text-danger]="balanceAmount < 0">
+            £{{ balanceAmount.toFixed(2) }}
+          </strong>
+        </div>
+      </div>
+      <div class="col-md-2 col-6">
+        <div class="card border-0 shadow-sm text-center p-3 h-100">
+          <small class="text-muted mb-1">Avg Expense</small>
+          <strong class="d-block fs-6">£{{ avgExpenseAmount.toFixed(2) }}</strong>
+        </div>
+      </div>
+      <div class="col-md-2 col-6">
+        <div class="card border-0 shadow-sm text-center p-3 h-100">
+          <small class="text-muted mb-1">Top Category</small>
+          <strong class="d-block text-truncate fs-6">{{ topCategoryName }}</strong>
+        </div>
+      </div>
+      <div class="col-md-2 col-6">
+        <div class="card border-0 shadow-sm text-center p-3 h-100">
+          <small class="text-muted mb-1">Payment Split</small>
+          <strong class="d-block fs-6">💳 {{ cardPercent }}%</strong>
+          <span class="text-muted small">💵 {{ cashPercent }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BIGGEST EXPENSE ── -->
+    @if (biggestExpense) {
+      <div class="alert alert-secondary d-flex justify-content-between align-items-center mb-4 py-2 px-3">
+        <span class="small text-muted">Biggest single expense:</span>
+        <span>
+          <strong class="text-danger">£{{ biggestExpense.amount.toFixed(2) }}</strong>
+          <span class="text-muted mx-1">—</span>
+          {{ biggestExpense.merchant }}
+          <span class="badge bg-secondary ms-1">{{ biggestExpense.category_name }}</span>
+          <span class="text-muted ms-1 small">{{ biggestExpense.date }}</span>
+        </span>
+      </div>
+    }
+
+    <!-- ── SPENDING CHART ── -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-dark text-white">📊 Spending by Category</div>
+      <div class="card-body d-flex justify-content-center">
+        @if (chartData.length === 0) {
+          <div class="text-center py-4 text-muted">
+            <div style="font-size:2rem;margin-bottom:6px;">📊</div>
+            <p class="mb-0 small">No expense data to display</p>
+          </div>
+        } @else {
+          <div style="width: 460px; max-width: 100%;">
+            <canvas #spendingChart></canvas>
+          </div>
+        }
+      </div>
     </div>
 
     <!-- ── EXPENSES ── -->
